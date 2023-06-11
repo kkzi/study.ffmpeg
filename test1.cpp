@@ -21,8 +21,8 @@ static int HEIGHT = 200;
 
 void test_encode()
 {
-    ff_encoder enc("tenc.ts", "mpegts", WIDTH, HEIGHT, FRAMERATE);
-    enc.on_packet([](auto &&buf, auto len) {
+    ff_encoder enc("mpegts", "tenc.ts", WIDTH, HEIGHT, FRAMERATE);
+    enc.on_packet([](auto &&packet) {
     });
     std::ifstream yuvfile("ttest.yuv", std::ios::binary);
     char *buffer = new char[WIDTH * HEIGHT * 3 / 2];
@@ -42,7 +42,7 @@ void test_encode()
 
 int main(int argc, char **argv)
 {
-    test_encode();
+    //test_encode();
 
     avdevice_register_all();
 
@@ -50,8 +50,8 @@ int main(int argc, char **argv)
     for (auto i = 0; i < CHANNEL_COUNT; ++i)
     {
         threads.emplace_back([i] {
-            ff_encoder enc(std::format("wenc{}.ts", i), "mpegts", WIDTH, HEIGHT, FRAMERATE);
-            enc.on_packet([](auto &&buf, auto len) {
+            ff_encoder enc("mpegts", std::format("wenc{}.ts", i), WIDTH, HEIGHT, FRAMERATE);
+            enc.on_packet([](auto &&packet) {
             });
 
             ff_capture cap({ 0, 0, WIDTH, HEIGHT }, FRAMERATE);
