@@ -33,10 +33,14 @@ public:
         auto ret = avcodec_open2(enc_ctx_, codec, NULL);
         REQUIRE_RET(ret);
 
+        // mux
         avformat_alloc_output_context2(&fmt_ctx_, nullptr, fmtname.data(), filename.data());
-        if (!filename.empty())
+        if (auto nofile = fmt_ctx_->flags & AVFMT_NOFILE; nofile)
         {
-            ret = avio_open(&fmt_ctx_->pb, filename.data(), AVIO_FLAG_READ_WRITE);
+        }
+        else if (!filename.empty())
+        {
+            ret = avio_open(&fmt_ctx_->pb, filename.data(), AVIO_FLAG_WRITE);
             REQUIRE_RET(ret);
         }
 
@@ -61,6 +65,7 @@ public:
     }
 
 public:
+    // h264
     void on_packet(const ff_packet_callback &func)
     {
         callback_ = func;

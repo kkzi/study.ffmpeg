@@ -15,7 +15,7 @@ extern "C"
 
 using namespace std::literals;
 
-static std::ofstream out("zoutput.ts", std::ios::binary | std::ios::trunc);
+static std::ofstream out("zoutput.264", std::ios::binary | std::ios::trunc);
 int main(int argc, char **argv)
 {
     std::ifstream yuv("zyuv_0.yuv", std::ios::binary);
