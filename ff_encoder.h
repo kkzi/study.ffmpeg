@@ -43,8 +43,7 @@ public:
             auto avio_ctx = avio_alloc_context(
                 buffer, BUFFER_LEN, 1, this, nullptr,
                 [](void *opaque, uint8_t *buf, int len) -> int {
-                    if (auto func = static_cast<ff_encoder *>(opaque)->mux_pkt_callback_; func != nullptr)
-                        func(buf, len);
+                    if (auto func = static_cast<ff_encoder *>(opaque)->mux_pkt_callback_; func != nullptr) func(buf, len);
                     return len;
                 },
                 nullptr);
@@ -61,8 +60,7 @@ public:
         assert(video_stream_);
         video_stream_->time_base = enc_ctx_->time_base;
 
-        if (enc_ctx_->flags & AVFMT_GLOBALHEADER)
-            enc_ctx_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        if (enc_ctx_->flags & AVFMT_GLOBALHEADER) enc_ctx_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
         ret = avcodec_parameters_from_context(video_stream_->codecpar, enc_ctx_);
         REQUIRE_RET(ret);
@@ -98,10 +96,9 @@ public:
             pkt->pts = av_rescale_q(pkt->pts, enc_ctx_->time_base, fmt_ctx_->streams[0]->time_base);
             pkt->dts = pkt->pts;
             // packet->pos = -1;
-            printf("[%x] pts %lld\n", GetCurrentThreadId(), pkt->pts);
+            // printf("[%x] pts %lld\n", GetCurrentThreadId(), pkt->pts);
 
-            if (enc_pkt_callback_)
-                enc_pkt_callback_(pkt);
+            if (enc_pkt_callback_) enc_pkt_callback_(pkt);
 
             av_interleaved_write_frame(fmt_ctx_, pkt);
             av_packet_free(&pkt);

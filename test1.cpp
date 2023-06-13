@@ -62,7 +62,7 @@ int main(int argc, char **argv)
             //    pktfile.flush();
             //});
 
-            std::ofstream ts_file(std::format("zenc_func{}.ts", i), std::ios::trunc | std::ios::binary);
+            // std::ofstream ts_file(std::format("zenc_func{}.ts", i), std::ios::trunc | std::ios::binary);
             // ts_enc.on_mux_packet([&ts_file](auto &&buf, auto &&len) {
             //    ts_file.write((char *)buf, len);
             //    ts_file.flush();
@@ -75,8 +75,8 @@ int main(int argc, char **argv)
             //    file.write((char *)bmp->data, bmp->size);
             //});
 
-            std::ofstream yuv_file(std::format("zyuv_{}.yuv", i), std::ios::binary | std::ios::trunc);
-            cap.on_yuv_frame([&yuv_file, &rtpts_enc](auto &&yuv) {
+            // std::ofstream yuv_file(std::format("zyuv_{}.yuv", i), std::ios::binary | std::ios::trunc);
+            cap.on_yuv_frame([&rtpts_enc](auto &&yuv) {
                 // ff_save_yuv_file(yuv_file, yuv);
                 rtpts_enc.encode(yuv);
                 // ts_enc.encode(yuv);
@@ -88,8 +88,8 @@ int main(int argc, char **argv)
             //}).detach();
 
             cap.run();
-            yuv_file.close();
-            ts_file.close();
+            // yuv_file.close();
+            // ts_file.close();
         });
     }
     for (auto &t : threads)
