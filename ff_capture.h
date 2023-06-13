@@ -46,6 +46,9 @@ public:
             stop();
         }
 
+        while (bmp_count_ > 0)
+        {
+        }
         sws_freeContext(sws_ctx_);
         avcodec_free_context(&picture_avctx_);
         avformat_close_input(&fmt_ctx_);
@@ -70,31 +73,42 @@ public:
         while (!interrupted_)
         {
             auto ret = av_read_frame(fmt_ctx_, packet);
-            if (ret < 0) continue;
-            if (bmp_func_ != nullptr) bmp_func_(packet);
+            if (ret < 0)
+                continue;
+            if (bmp_func_ != nullptr)
+                bmp_func_(packet);
 
             ret = avcodec_send_packet(picture_avctx_, packet);
-            if (ret < 0) continue;
+            if (ret < 0)
+            {
+                av_packet_unref(packet);
+                continue;
+            }
 
             while (true)
             {
                 ret = avcodec_receive_frame(picture_avctx_, frame);
-                if (ret < 0) break;
+                if (ret < 0)
+                    break;
 
                 auto yuv = ff_alloc_picture(AV_PIX_FMT_YUV420P, frame->width, frame->height);
                 sws_scale(sws_ctx_, frame->data, frame->linesize, 0, frame->height, yuv->data, yuv->linesize);
-                // yuv->time_base = frame->time_base;
-                // yuv->pts = frame->pts;
-                // yuv->pkt_dts = frame->pkt_dts;
+                yuv->time_base = frame->time_base;
+                yuv->pts = frame->pts;
+                yuv->pkt_dts = frame->pkt_dts;
                 yuv->pts = bmp_count_;
                 yuv->pkt_dts = frame->pkt_dts;
-                if (yuv_func_ != nullptr) yuv_func_(yuv);
+                if (yuv_func_ != nullptr)
+                    yuv_func_(yuv);
                 av_frame_free(&yuv);
             }
+
+            av_packet_unref(packet);
             bmp_count_++;
         }
         av_frame_free(&frame);
         av_packet_free(&packet);
+        bmp_count_ = 0;
     }
 
     void stop()

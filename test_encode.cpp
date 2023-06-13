@@ -25,7 +25,7 @@ int main(int argc, char **argv)
     int count = 0;
 
     ff_encoder enc("rtp_mpegts", "rtp://234.0.0.1:1234", width, height, 1);
-    enc.on_packet([](auto &&packet) {
+    enc.on_enc_packet([](auto &&packet) {
         out.write((char *)packet->data, packet->size);
         out.flush();
     });

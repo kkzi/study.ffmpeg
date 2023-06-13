@@ -35,10 +35,23 @@ public:
 
         // mux
         avformat_alloc_output_context2(&fmt_ctx_, nullptr, fmtname.data(), filename.data());
-        if (auto nofile = fmt_ctx_->flags & AVFMT_NOFILE; nofile)
+        fmt_ctx_->oformat->flags;
+        if (filename.empty())
         {
+            constexpr static size_t BUFFER_LEN = 0xFFFF;
+            unsigned char buffer[BUFFER_LEN]{ 0 };
+            auto avio_ctx = avio_alloc_context(
+                buffer, BUFFER_LEN, 1, this, nullptr,
+                [](void *opaque, uint8_t *buf, int len) -> int {
+                    if (auto func = static_cast<ff_encoder *>(opaque)->mux_pkt_callback_; func != nullptr)
+                        func(buf, len);
+                    return len;
+                },
+                nullptr);
+            REQUIRE_PTR(avio_ctx, "alloc avio context failed");
+            fmt_ctx_->pb = avio_ctx;
         }
-        else if (!filename.empty())
+        else
         {
             ret = avio_open(&fmt_ctx_->pb, filename.data(), AVIO_FLAG_WRITE);
             REQUIRE_RET(ret);
@@ -48,7 +61,8 @@ public:
         assert(video_stream_);
         video_stream_->time_base = enc_ctx_->time_base;
 
-        if (enc_ctx_->flags & AVFMT_GLOBALHEADER) enc_ctx_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        if (enc_ctx_->flags & AVFMT_GLOBALHEADER)
+            enc_ctx_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
         ret = avcodec_parameters_from_context(video_stream_->codecpar, enc_ctx_);
         REQUIRE_RET(ret);
@@ -66,9 +80,14 @@ public:
 
 public:
     // h264
-    void on_packet(const ff_packet_callback &func)
+    void on_enc_packet(const ff_packet_callback &func)
     {
-        callback_ = func;
+        enc_pkt_callback_ = func;
+    }
+
+    void on_mux_packet(const std::function<void(uint8_t *, int len)> &func)
+    {
+        mux_pkt_callback_ = func;
     }
 
     void encode(AVFrame *frame)
@@ -79,8 +98,10 @@ public:
             pkt->pts = av_rescale_q(pkt->pts, enc_ctx_->time_base, fmt_ctx_->streams[0]->time_base);
             pkt->dts = pkt->pts;
             // packet->pos = -1;
+            printf("[%x] pts %lld\n", GetCurrentThreadId(), pkt->pts);
 
-            if (callback_) callback_(pkt);
+            if (enc_pkt_callback_)
+                enc_pkt_callback_(pkt);
 
             av_interleaved_write_frame(fmt_ctx_, pkt);
             av_packet_free(&pkt);
@@ -90,5 +111,6 @@ public:
 private:
     AVFormatContext *fmt_ctx_{ nullptr };
     AVCodecContext *enc_ctx_{ nullptr };
-    ff_packet_callback callback_{ nullptr };
+    ff_packet_callback enc_pkt_callback_{ nullptr };
+    std::function<void(uint8_t *, int len)> mux_pkt_callback_{ nullptr };
 };
