@@ -96,4 +96,6 @@ int main(int argc, char **argv)
     {
         t.join();
     }
+
+    // ff_encoder rtpts_enc("rtp_mpegts", "rtp://234.1.1.1:1234", WIDTH, HEIGHT, FRAMERATE);
 }
