@@ -4,7 +4,7 @@
 
 void decode_from_url()
 {
-    ff_decoder dec("rtp://234.1.1.1:1234");
+    ff_decoder dec("rtp://234.1.1.1:12300");
     dec.on_frame([](auto &&frame) {
         printf("[%x] pts %lld\n", std::this_thread::get_id(), frame->pts);
     });

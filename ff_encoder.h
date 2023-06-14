@@ -93,8 +93,8 @@ public:
         auto arr = ff_encode(enc_ctx_, frame);
         for (auto &pkt : arr)
         {
-            pkt->pts = av_rescale_q(pkt->pts, enc_ctx_->time_base, fmt_ctx_->streams[0]->time_base);
-            pkt->dts = pkt->pts;
+            // pkt->pts = av_rescale_q(pkt->pts, enc_ctx_->time_base, fmt_ctx_->streams[0]->time_base);
+            // pkt->dts = pkt->pts;
             // packet->pos = -1;
             // printf("[%x] pts %lld\n", GetCurrentThreadId(), pkt->pts);
 
