@@ -29,12 +29,10 @@ static std::string ff_err2str(int ret)
 }
 
 #define REQUIRE_PTR(ptr, err, ...)                                                                                                                             \
-    if (ptr == nullptr)                                                                                                                                        \
-        throw std::runtime_error(std::format(err, __VA_ARGS__));
+    if (ptr == nullptr) throw std::runtime_error(std::format(err, __VA_ARGS__));
 
 #define REQUIRE_RET(ret)                                                                                                                                       \
-    if (ret < 0)                                                                                                                                               \
-        throw std::runtime_error(ff_err2str(ret));
+    if (ret < 0) throw std::runtime_error(ff_err2str(ret));
 
 static void ff_save_yuv_file(std::ofstream &out, AVFrame *frame)
 {
@@ -69,6 +67,7 @@ static std::vector<AVFrame *> ff_decode(AVCodecContext *ctx, AVPacket *pkt)
     auto ret = avcodec_send_packet(ctx, pkt);
     if (ret < 0)
     {
+        //avcodec_flush_buffers(ctx);
         return {};
     }
 

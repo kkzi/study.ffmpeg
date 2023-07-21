@@ -13,3 +13,6 @@ target_link_libraries(test_encode PRIVATE ${FFMPEG_LIBRARIES})
 
 add_executable(test_decode test_decode.cpp)
 target_link_libraries(test_decode PRIVATE ${FFMPEG_LIBRARIES})
+
+
+add_subdirectory(qtexamples)

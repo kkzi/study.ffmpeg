@@ -3,13 +3,16 @@ project(ffmpeg-study)
 
 set(CMAKE_CXX_STANDARD 23)
 
+add_link_options(/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 
 set(QT_DIR $ENV{QTDIR})
+set(CMAKE_PREFIX_PATH ${QT_DIR}/lib/cmake)
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-find_package(Qt5 COMPONENTS Core Widgets Network)
+find_package(Qt5 CONFIG COMPONENTS Core Widgets Network)
 
 include_directories($ENV{BOOST})
 link_directories($ENV{BOOST}/lib64-msvc-14.2)
@@ -31,11 +34,11 @@ link_directories   (${FFMPEG_LIBRARY_DIRS})
 
 
 #add_executable(ffplayer main.cpp ffplayer.cpp)
-add_executable(TestVideoRecv- VideoRecvTest.cpp FfplayWidget.cpp VideoDecoder.cpp)
-#target_link_libraries(TestVideoRecv- avcodec avformat avutil swscale Qt::Widgets)
-target_include_directories(TestVideoRecv- PRIVATE ${FFMPEG_INCLUDE_DIRS})
-target_link_directories(TestVideoRecv- PRIVATE ${FFMPEG_LIBRARY_DIRS})
-target_link_libraries(TestVideoRecv- PRIVATE ${FFMPEG_LIBRARIES} Qt::Widgets)
+#add_executable(TestVideoRecv- VideoRecvTest.cpp FfplayWidget.cpp VideoDecoder.cpp)
+##target_link_libraries(TestVideoRecv- avcodec avformat avutil swscale Qt::Widgets)
+#target_include_directories(TestVideoRecv- PRIVATE ${FFMPEG_INCLUDE_DIRS})
+#target_link_directories(TestVideoRecv- PRIVATE ${FFMPEG_LIBRARY_DIRS})
+#target_link_libraries(TestVideoRecv- PRIVATE ${FFMPEG_LIBRARIES} Qt::Widgets)
 
 add_subdirectory(sti)
 
@@ -79,18 +82,11 @@ target_link_directories   (TestVideoSend  PRIVATE ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries     (TestVideoSend  PRIVATE ${FFMPEG_LIBRARIES} sti Qt::Widgets Qt::Network)
 
 file(GLOB_RECURSE SRCS "VideoRecvTest2/*.cpp" "VideoRecvTest2/*.h" "VideoRecvTest2/*.ui")
-add_executable(TestVideoRecv ${SRCS})
+add_executable(TestVideoRecv ${SRCS} logo.rc logo.qrc)
 #target_link_libraries(TestVideoRecv PRIVATE Qt::Widgets sti avcodec avformat avutil swscale )
 target_include_directories(TestVideoRecv PRIVATE ${FFMPEG_INCLUDE_DIRS})
 target_link_directories   (TestVideoRecv  PRIVATE ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries     (TestVideoRecv  PRIVATE ${FFMPEG_LIBRARIES} sti Qt::Widgets Qt::Network)
-
-add_subdirectory(fftools)
-add_executable(test_ffmpeg test_ffmpeg.cpp)
-#target_link_libraries(test_ffmpeg PRIVATE libffmpeg)
-target_link_libraries     (test_ffmpeg  PRIVATE ${FFMPEG_LIBRARIES} sti libffmpeg Qt::Widgets Qt::Network)
-
-
 
 add_executable(test_grab3 test_grab3.cpp)
 target_link_libraries(test_grab3 PRIVATE ${FFMPEG_LIBRARIES})

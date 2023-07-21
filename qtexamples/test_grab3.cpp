@@ -160,7 +160,7 @@ int main(int argc, char **argv)
     av_dict_set(&options, "framerate", "30", 0);
     av_dict_set(&options, "draw_mouse", "1", 0);
 
-    const AVInputFormat *input_format = av_find_input_format("gdigrab");
+    AVInputFormat *input_format = av_find_input_format("gdigrab");
 
     AVFormatContext *input_format_context = NULL;
     if (avformat_open_input(&input_format_context, "desktop", input_format, &options) != 0)

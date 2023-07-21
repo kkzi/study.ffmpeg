@@ -99,7 +99,7 @@ private:
         if (interrupted_) return;
         REQUIRE_RET(ret);
 
-        const AVCodec *dec = nullptr;
+        AVCodec *dec = nullptr;
         video_index_ = av_find_best_stream(fmt_ctx_, AVMEDIA_TYPE_VIDEO, -1, -1, &dec, 0);
         REQUIRE_RET(video_index_);
 

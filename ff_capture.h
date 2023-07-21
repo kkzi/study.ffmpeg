@@ -81,7 +81,7 @@ public:
             {
                 auto yuv = ff_alloc_picture(AV_PIX_FMT_YUV420P, frame->width, frame->height);
                 sws_scale(sws_ctx_, frame->data, frame->linesize, 0, frame->height, yuv->data, yuv->linesize);
-                yuv->time_base = frame->time_base;
+                //yuv->time_base = frame->time_base;
                 yuv->pts = frame->pts;
                 yuv->pkt_dts = frame->pkt_dts;
                 yuv->pts = bmp_count_;

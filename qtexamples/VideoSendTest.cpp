@@ -26,8 +26,8 @@ using namespace std::literals;
 static QString CONFIG_FILE = QDir::homePath() + "/.atom/video_send_test.bcfg";
 static int WIDTH = 400;
 static int HEIGHT = 200;
-static int FRAMERATE = 10;
-static auto OUTPUT_INTERVAL = 10ms;
+static int FRAMERATE = 50;
+static int OUTPUT_INTERVAL = 10;
 
 int main(int argc, char **argv)
 {
@@ -46,7 +46,6 @@ int main(int argc, char **argv)
 
 VideoSendTest::VideoSendTest(QWidget *parent)
     : QDialog(parent)
-    , outputTimer_(io_)
 {
     displayTimer_.setSingleShot(false);
     displayTimer_.setInterval(1000 / FRAMERATE);
@@ -146,19 +145,19 @@ void VideoSendTest::doStart()
         makeGrabChannel(i);
     }
 
-    // outputTimer_.expires_after(OUTPUT_INTERVAL);
-    // outputTimer_.async_wait([this](auto &&ec) {
-    //    if (!ec)
-    //    {
-    //        outputPictures();
-    //    }
-    //});
     outThread_ = std::thread([this] {
         // io_.run();
+        auto t0 = QDateTime::currentMSecsSinceEpoch();
+        auto last = t0;
         while (!interrupted_)
         {
+            auto now = QDateTime::currentMSecsSinceEpoch();
+            if (now - last < OUTPUT_INTERVAL)
+            {
+                continue;
+            }
+            last = now;
             outputPictures();
-            std::this_thread::sleep_for(10ms);
         }
     });
 
@@ -174,7 +173,6 @@ void VideoSendTest::doStart()
 void VideoSendTest::doStop()
 {
     interrupted_ = true;
-    outputTimer_.cancel();
 
     if (outThread_.joinable())
     {
@@ -183,8 +181,7 @@ void VideoSendTest::doStop()
     channels_.clear();
     for (auto &t : threads_)
     {
-        if (t.joinable())
-            t.join();
+        if (t.joinable()) t.join();
     }
 
     displayTimer_.stop();
@@ -215,14 +212,6 @@ void VideoSendTest::outputPictures()
         auto now = QDateTime::currentMSecsSinceEpoch();
         auto frame = fmt1_->make_sub_frame();
         tmserver_->push(form_.rtrchannel, now, std::make_shared<std::vector<uint8_t>>(frame));
-
-        // outputTimer_.expires_after(OUTPUT_INTERVAL);
-        // outputTimer_.async_wait([this](auto &&ec) {
-        //    if (!ec)
-        //    {
-        //        outputPictures();
-        //    }
-        //});
     }
 }
 

@@ -3,6 +3,7 @@
 #include "ffmpeg.hpp"
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <string>
@@ -10,6 +11,9 @@
 
 class ff_decoder
 {
+    constexpr static size_t AVIO_BUFFER_MAX = 4096;
+    constexpr static size_t STREAM_BUFFER_MAX = AVIO_BUFFER_MAX * 10;
+
 public:
     ff_decoder(std::string_view input)
         : input_(input)
@@ -19,27 +23,41 @@ public:
     ff_decoder()
         : ff_decoder("")
     {
-        stream_.reserve(0xFF'FFFF);
+        stream_.reserve(STREAM_BUFFER_MAX);
     }
 
     ~ff_decoder()
     {
+        using namespace std::literals;
+
+        auto inited = video_index_ >= 0;
         interrupted_ = true;
         cond_.notify_all();
 
         while (video_index_ >= 0)
         {
         }
+        std::this_thread::sleep_for(0.2s);
 
-        av_packet_free(&packet_);
-        if (dec_ctx_) avcodec_free_context(&dec_ctx_);
-        if (fmt_ctx_->pb)
+        if (dec_ctx_)
         {
-            av_free(fmt_ctx_->pb->buffer);
-            avio_context_free(&fmt_ctx_->pb);
+            avcodec_free_context(&dec_ctx_);
+            dec_ctx_ = nullptr;
         }
-        avformat_close_input(&fmt_ctx_);
-        avformat_free_context(fmt_ctx_);
+        if (fmt_ctx_)
+        {
+            auto avio_ctx = fmt_ctx_->pb;
+            if (inited)
+            {
+                avformat_close_input(&fmt_ctx_);
+            }
+            if (avio_ctx)
+            {
+                av_free(avio_ctx->buffer);
+            }
+            avio_context_free(&avio_ctx);
+            // avformat_free_context(fmt_ctx_);
+        }
         sws_freeContext(sws_ctx_);
     }
 
@@ -60,26 +78,53 @@ public:
         if (len == 0) return;
 
         std::scoped_lock lock(mutex_);
+        if (stream_.size() >= STREAM_BUFFER_MAX)
+        {
+            stream_.clear();
+        }
         std::copy(buf, buf + len, std::back_inserter(stream_));
         cond_.notify_all();
     }
 
     void run()
     {
-        init();
-
-        while (av_read_frame(fmt_ctx_, packet_) >= 0)
+        while (!interrupted_)
         {
-            auto arr = ff_decode(dec_ctx_, packet_);
-            for (auto &&f : arr)
+            try
             {
-                process_yuv_frame(f);
-                av_frame_free(&f);
+                init();
+                break;
             }
-            av_packet_unref(packet_);
+            catch (const std::exception &e)
+            {
+                printf("%s\n", e.what());
+            }
         }
 
-        ff_decode(dec_ctx_, nullptr);
+        auto pkt = av_packet_alloc();
+        while (!interrupted_ and av_read_frame(fmt_ctx_, pkt) >= 0)
+        {
+            if (interrupted_) break;
+            if (pkt->stream_index == video_index_)
+            {
+                auto arr = ff_decode(dec_ctx_, pkt);
+                for (auto &&f : arr)
+                {
+                    // if (f->key_frame == 1)
+                    //{
+                    //    avcodec_flush_buffers(dec_ctx_);
+                    //};
+                    process_yuv_frame(f);
+                    av_frame_free(&f);
+                }
+            }
+            av_packet_unref(pkt);
+        }
+        av_packet_free(&pkt);
+        if (!interrupted_ and dec_ctx_)
+        {
+            ff_decode(dec_ctx_, nullptr);
+        }
         video_index_ = -1;
     }
 
@@ -88,20 +133,36 @@ private:
     {
         if (input_.empty())
         {
+            fmt_ctx_ = avformat_alloc_context();
+            REQUIRE_PTR(fmt_ctx_, "alloc format context failed");
+            fmt_ctx_->flags |= AVFMT_FLAG_CUSTOM_IO;
+            fmt_ctx_->flags |= AVFMT_FLAG_FLUSH_PACKETS;
+            fmt_ctx_->flags |= AVFMT_FLAG_NONBLOCK;
             init_avio_context();
         }
 
-        auto ret = avformat_open_input(&fmt_ctx_, input_.c_str(), nullptr, nullptr);
-        if (interrupted_) return;
-        REQUIRE_RET(ret);
+        int ret = 0;
+        {
+            AVDictionary *opts = NULL;
+            // av_dict_set_int(&opts, "resync_size", 2048, 0);
+            // av_dict_set_int(&opts, "max_packet_size", 4096, 0);
+            ret = avformat_open_input(&fmt_ctx_, input_.c_str(), nullptr, &opts);
+            if (interrupted_) return;
+            REQUIRE_RET(ret);
+            fmt_ctx_->max_probe_packets = 32;
+            fmt_ctx_->probesize = 188 * fmt_ctx_->max_probe_packets;
+            fmt_ctx_->skip_estimate_duration_from_pts = 1;
+        }
 
         ret = avformat_find_stream_info(fmt_ctx_, nullptr);
         if (interrupted_) return;
         REQUIRE_RET(ret);
 
-        const AVCodec *dec = nullptr;
+        AVCodec *dec = nullptr;
         video_index_ = av_find_best_stream(fmt_ctx_, AVMEDIA_TYPE_VIDEO, -1, -1, &dec, 0);
         REQUIRE_RET(video_index_);
+
+        av_dump_format(fmt_ctx_, video_index_, 0, 0);
 
         dec_ctx_ = avcodec_alloc_context3(dec);
         REQUIRE_PTR(dec_ctx_, "Failed to allocate codec context");
@@ -110,29 +171,24 @@ private:
         ret = avcodec_parameters_to_context(dec_ctx_, video_stream->codecpar);
         REQUIRE_RET(ret);
 
-        AVDictionary *opts = NULL;
-        ret = avcodec_open2(dec_ctx_, dec, &opts);
-        REQUIRE_RET(ret);
-
-        packet_ = av_packet_alloc();
-        REQUIRE_PTR(packet_, "alloc packet failed");
+        {
+            AVDictionary *opts = NULL;
+            ret = avcodec_open2(dec_ctx_, dec, &opts);
+            REQUIRE_RET(ret);
+        }
     }
 
     void init_avio_context()
     {
-        fmt_ctx_ = avformat_alloc_context();
-        REQUIRE_PTR(fmt_ctx_, "alloc format context failed");
-        fmt_ctx_->flags |= AVFMT_FLAG_CUSTOM_IO;
-        fmt_ctx_->flags |= AVFMT_FLAG_FLUSH_PACKETS;
-        auto buffer_len = 0xffff;
-        auto avio_buffer = (unsigned char *)av_malloc(buffer_len);
+        auto avio_buffer = (unsigned char *)av_malloc(AVIO_BUFFER_MAX);
         auto avio_ctx = avio_alloc_context(
-            avio_buffer, buffer_len, 0, this,
+            avio_buffer, AVIO_BUFFER_MAX, 0, this,
             [](void *opaque, uint8_t *buf, int len) {
                 return ((decltype(this))opaque)->read_stream(buf, len);
             },
             nullptr, nullptr);
         REQUIRE_PTR(avio_ctx, "alloc avio context failed");
+        // avio_ctx->max_packet_size = 10;
         fmt_ctx_->pb = avio_ctx;
     }
 
@@ -156,6 +212,7 @@ private:
 
     void process_yuv_frame(AVFrame *frame)
     {
+        // printf("time=%lld, pts=%lld, dts=%lld\n", time(nullptr), frame->pts, frame->pkt_dts);
         if (yuv_callback_) yuv_callback_(frame);
 
         if (bgra_callback_)
@@ -168,7 +225,7 @@ private:
             av_image_alloc(pixels, pitch, width, height, AV_PIX_FMT_BGRA, 1);
             sws_scale(sws_ctx_, frame->data, frame->linesize, 0, height, pixels, pitch);
             bgra_callback_(pixels[0], pitch[0], width, height);
-            av_freep(&pixels[0]);
+            av_free(pixels[0]);
         }
     }
 
@@ -184,7 +241,6 @@ private:
 
     AVFormatContext *fmt_ctx_{ nullptr };
     AVCodecContext *dec_ctx_{ nullptr };
-    AVPacket *packet_{ nullptr };
     int video_index_{ -1 };
     SwsContext *sws_ctx_{ nullptr };
 };

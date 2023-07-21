@@ -58,7 +58,6 @@ private:
     std::atomic<bool> interrupted_{ false };
     std::thread outThread_;
     boost::asio::io_context io_;
-    boost::asio::high_resolution_timer outputTimer_;
 
     struct
     {
