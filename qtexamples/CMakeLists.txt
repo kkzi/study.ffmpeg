@@ -40,6 +40,7 @@ link_directories   (${FFMPEG_LIBRARY_DIRS})
 #target_link_directories(TestVideoRecv- PRIVATE ${FFMPEG_LIBRARY_DIRS})
 #target_link_libraries(TestVideoRecv- PRIVATE ${FFMPEG_LIBRARIES} Qt::Widgets)
 
+include_directories(..)
 add_subdirectory(sti)
 
 add_executable(fftest2 test_encode.cpp)

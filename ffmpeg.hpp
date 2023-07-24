@@ -67,6 +67,7 @@ static std::vector<AVFrame *> ff_decode(AVCodecContext *ctx, AVPacket *pkt)
     auto ret = avcodec_send_packet(ctx, pkt);
     if (ret < 0)
     {
+        //avcodec_flush_buffers(ctx);
         return {};
     }
 
@@ -98,19 +99,12 @@ static std::vector<AVPacket *> ff_encode(AVCodecContext *ctx, AVFrame *frame)
     while (true)
     {
         auto pkt = av_packet_alloc();
-        if (auto ret = avcodec_receive_packet(ctx, pkt); ret >= 0)
+        if (avcodec_receive_packet(ctx, pkt) >= 0)
         {
-            //if (frame != nullptr)
-            //{
-            //    pkt->time_base = frame->time_base;
-            //    pkt->pts = frame->pts;
-            //    pkt->dts = frame->pkt_dts;
-            //}
             packets.push_back(pkt);
         }
         else  // ret == AVERROR(EAGAIN) || ret == AVERROR_EOF
         {
-            auto err = ff_err2str(ret);
             av_packet_free(&pkt);
             break;
         }

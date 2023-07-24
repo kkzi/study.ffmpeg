@@ -62,12 +62,12 @@ MainWin::MainWin()
     ui_.TimeCodeEdit->hide();
 
     {
-        ui_.Title4->hide();
-        ui_.label_13->hide();
-        ui_.label_14->hide();
-        ui_.ForwardIpEdit->hide();
-        ui_.ForwardPortEdit->hide();
-        ui_.verticalLayout->removeItem(ui_.verticalLayout->takeAt(2));
+        // ui_.Title4->hide();
+        // ui_.label_13->hide();
+        // ui_.label_14->hide();
+        // ui_.ForwardIpEdit->hide();
+        // ui_.ForwardPortEdit->hide();
+        // ui_.verticalLayout->removeItem(ui_.verticalLayout->takeAt(2));
     }
     ui_.VideoChannelsEdit->setMinimum(1);
     ui_.ReservedEdit->setMaximum(256);
@@ -129,14 +129,13 @@ void MainWin::start()
         auto player = new QLabel(this);
         playerLayout_->addWidget(player, i / 2, i % 2);
 
-        auto rtpurl = std::format("rtp://{}:{}", forwardIp.toStdString(), forwardPort + i * 10);
-        // auto rtppush = std::make_shared<ff_encoder>("rtp_mpegts", rtpurl, 400, 200, 10);
         auto decode = std::make_unique<ff_decoder>();
-        // auto fwd = std::make_shared<ff_encoder>("rtp_mpegts", rtpurl);
-
-        // decode->on_frame([i](auto &&frame) {
-        //    printf("%d %lld\n", i, frame->pts);
-        //});
+        auto rtpurl = std::format("rtp://{}:{}", forwardIp.toStdString(), forwardPort + i * 10);
+        auto fwd = std::make_shared<ff_encoder>("rtp_mpegts", rtpurl, 400, 200, 10);
+        decode->on_frame([i, fwd](auto &&frame) {
+            // printf("%d %lld\n", i, frame->pts);
+            fwd->encode(frame);
+        });
         decode->on_bgra_picture([idx = i, player, this](auto &&buf, auto &&len, int width, int height) {
             QImage image((uchar *)buf, width, height, QImage::Format_RGB32);
             emit imageReceived(idx, image.copy());

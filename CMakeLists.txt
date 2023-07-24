@@ -16,3 +16,9 @@ target_link_libraries(test_decode PRIVATE ${FFMPEG_LIBRARIES})
 
 
 add_subdirectory(qtexamples)
+
+
+include_directories($ENV{boost})
+add_executable(rc2rb rowcross2rowblock.cpp)
+
+
