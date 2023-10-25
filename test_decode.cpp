@@ -4,7 +4,8 @@
 
 void decode_from_url()
 {
-    ff_decoder dec("rtp://234.1.1.1:12300");
+    // ff_decoder dec("rtp://234.1.1.1:12300");
+    ff_decoder dec("rtp://234.0.0.1:50000");
     dec.on_frame([](auto &&frame) {
         printf("[%x] pts %lld\n", std::this_thread::get_id(), frame->pts);
     });
@@ -35,6 +36,6 @@ void decode_from_mem()
 
 int main(int argc, char **argv)
 {
-    // decode_from_url();
-    decode_from_mem();
+    decode_from_url();
+    // decode_from_mem();
 }

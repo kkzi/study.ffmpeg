@@ -1,4 +1,5 @@
 ﻿#include "MainWin.h"
+#include "SplitFrame.h"
 #include "ff_decoder.h"
 #include "ff_encoder.h"
 #include "sti/cortex_sti_parser.h"
@@ -241,37 +242,51 @@ void MainWin::dispatchFrame(const Frame &frame)
 
 void MainWin::doDispatchColumn(const Frame &frame)
 {
-    int index = 0;
-    auto bytesPerChannel = (frame.payload.size() - frame.offset) / channels_;
+    // int index = 0;
+    // auto bytesPerChannel = (frame.payload.size() - frame.offset) / channels_;
 
-    auto ptr = (char *)frame.payload.data();
-    for (auto i = frame.offset; i < frame.payload.size(); i += 2)
-    {
-        auto index = ((i - frame.offset) / 2) % channels_;
-        auto &chan = id2channel_[index];
-        if (bigendian_)
-        {
-            std::copy(ptr + i, ptr + i + 2, std::back_inserter(chan.payload));
-        }
-        else
-        {
-            std::reverse_copy(ptr + i, ptr + i + 2, std::back_inserter(chan.payload));
-        }
-    }
+    // auto ptr = (char *)frame.payload.data();
+    // for (auto i = frame.offset; i < frame.payload.size(); i += 2)
+    //{
+    //    auto index = ((i - frame.offset) / 2) % channels_;
+    //    auto &chan = id2channel_[index];
+    //    if (bigendian_)
+    //    {
+    //        std::copy(ptr + i, ptr + i + 2, std::back_inserter(chan.payload));
+    //    }
+    //    else
+    //    {
+    //        std::reverse_copy(ptr + i, ptr + i + 2, std::back_inserter(chan.payload));
+    //    }
+    //}
 
-    for (auto &[id, chan] : id2channel_)
-    {
-        chan.rawfile.write((char *)chan.payload.data(), chan.payload.size());
-        if (!is_idle_frame(chan.payload.data()))
+    // for (auto &[id, chan] : id2channel_)
+    //{
+    //    chan.rawfile.write((char *)chan.payload.data(), chan.payload.size());
+    //    if (!is_idle_frame(chan.payload.data()))
+    //    {
+    //        // if (id == 0)
+    //        {
+    //            chan.decode->push_bytes(chan.payload.data(), chan.payload.size());
+    //        }
+    //        chan.tsfile.write((char *)chan.payload.data(), chan.payload.size());
+    //    }
+    //    chan.payload.clear();
+    //}
+    split_frame_column_cross(frame, channels_, bigendian_, [this](auto &&idx, auto &&payload) {
+        if (!id2channel_.contains(idx)) return;
+
+        auto ptr = payload.data();
+        auto len = payload.size();
+        auto &&chan = id2channel_[idx];
+        chan.rawfile.write((char *)ptr, len);
+        if (!is_idle_frame(ptr))
         {
-            // if (id == 0)
-            {
-                chan.decode->push_bytes(chan.payload.data(), chan.payload.size());
-            }
-            chan.tsfile.write((char *)chan.payload.data(), chan.payload.size());
+            chan.decode->push_bytes(ptr, len);
+            chan.tsfile.write((char *)ptr, len);
         }
         chan.payload.clear();
-    }
+    });
 }
 
 void MainWin::doDispatchColumnContinus(const Frame &frame)
