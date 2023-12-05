@@ -11,19 +11,18 @@
 
 class ff_decoder
 {
-    constexpr static size_t AVIO_BUFFER_MAX = 4096;
-    constexpr static size_t STREAM_BUFFER_MAX = AVIO_BUFFER_MAX * 10;
-
 public:
-    ff_decoder(std::string_view input)
+    ff_decoder(std::string_view input, size_t probe_packet_count = 32)
         : input_(input)
+        , probe_packet_count_(probe_packet_count)
     {
+        stream_buffer_max_ = 188 * probe_packet_count_;
+        stream_.reserve(stream_buffer_max_);
     }
 
-    ff_decoder()
-        : ff_decoder("")
+    ff_decoder(size_t avio_buffer_max = 32)
+        : ff_decoder("", avio_buffer_max)
     {
-        stream_.reserve(STREAM_BUFFER_MAX);
     }
 
     ~ff_decoder()
@@ -78,7 +77,7 @@ public:
         if (len == 0) return;
 
         std::scoped_lock lock(mutex_);
-        if (stream_.size() >= STREAM_BUFFER_MAX)
+        if (stream_.size() >= stream_buffer_max_)
         {
             stream_.clear();
         }
@@ -149,8 +148,8 @@ private:
             ret = avformat_open_input(&fmt_ctx_, input_.c_str(), nullptr, &opts);
             if (interrupted_) return;
             REQUIRE_RET(ret);
-            fmt_ctx_->max_probe_packets = 32;
-            fmt_ctx_->probesize = 188 * fmt_ctx_->max_probe_packets;
+            fmt_ctx_->max_probe_packets = probe_packet_count_;
+            fmt_ctx_->probesize = stream_buffer_max_;
             fmt_ctx_->skip_estimate_duration_from_pts = 1;
         }
 
@@ -180,9 +179,10 @@ private:
 
     void init_avio_context()
     {
-        auto avio_buffer = (unsigned char *)av_malloc(AVIO_BUFFER_MAX);
+        auto avio_buffer_len = stream_buffer_max_;
+        auto avio_buffer = (unsigned char *)av_malloc(avio_buffer_len);
         auto avio_ctx = avio_alloc_context(
-            avio_buffer, AVIO_BUFFER_MAX, 0, this,
+            avio_buffer, avio_buffer_len, 0, this,
             [](void *opaque, uint8_t *buf, int len) {
                 return ((decltype(this))opaque)->read_stream(buf, len);
             },
@@ -231,6 +231,8 @@ private:
 
 private:
     std::string input_;
+    size_t probe_packet_count_{ 32 };
+    size_t stream_buffer_max_{ 0 };
     ff_frame_callback yuv_callback_{ nullptr };
     std::function<void(uint8_t *, size_t, int, int)> bgra_callback_{ nullptr };
 

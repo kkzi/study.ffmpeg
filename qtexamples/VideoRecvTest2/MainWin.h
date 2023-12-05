@@ -30,7 +30,27 @@ struct VideoChannel
     // std::unique_ptr<ff_encoder> fwd{ nullptr };
 };
 
-class MainWin : public QWidget
+struct VideoRecvConfig
+{
+    QString receiveIp;
+    int receivePort{ 3070 };
+    int tmChannel{ 0 };
+    int tmTimeCode{ 0 };
+    int frameBytes{ 512 };
+    int syncBytes{ 4 };
+    int sfidBytes{ 2 };
+    bool sfidIsBigEndian{ true };
+    int videoMode{ 0 };
+    int videoChannelCount{ 3 };
+    int videoReserved{ 2 };
+    bool videoDataIsBigEndian{ false };
+    QString forwardIp{ "235.1.1.1" };
+    int forwardPort{ 32100 };
+
+    int parseCache{ 320 };
+};
+
+class MainWin : public QFrame
 {
     Q_OBJECT
 
@@ -48,8 +68,8 @@ private:
     void doDispatchRow(const Frame &);
     void doDispatchRowContinus(const Frame &);
     void paintImage(int idx, const QImage &image);
-    void saveCurrentConfig();
-    void loadLastConfig();
+    void saveCurrentConfig(const QString &path = "");
+    void loadSpecifiedConfig(const QString &path = "");
 
 signals:
     void statusChanged(const QString &);
@@ -61,11 +81,6 @@ private:
     QTimer *timer_;
     QList<std::function<void()>> tasks_;
 
-    int channels_{ 2 };
-    bool bigendian_{ false };
-    int reserved_{ 2 };
-    int videoFmt_{ 0 };
-
     std::atomic<double> time_{ 0 };
     std::atomic<uint16_t> sfid_{ 0 };
     std::atomic<size_t> frameCount_{ 0 };
@@ -74,13 +89,5 @@ private:
     std::map<size_t, VideoChannel> id2channel_;
     std::unique_ptr<cortex::crt_tm_client> tmc_;
 
-    struct VideoRecvConfig
-    {
-        QString ip{ "127.0.0.1" };
-        int port{ 3070 };
-        int video_mode{ 0 };
-        int video_count{ 3 };
-        int reserved_row_or_col{ 2 };
-        bool bigendian{ false };
-    } form_;
+    VideoRecvConfig form_;
 };

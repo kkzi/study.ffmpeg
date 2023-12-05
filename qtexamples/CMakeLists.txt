@@ -3,7 +3,7 @@ project(ffmpeg-study)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_link_options(/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+#add_link_options(/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 
 set(QT_DIR $ENV{QTDIR})
 set(CMAKE_PREFIX_PATH ${QT_DIR}/lib/cmake)
@@ -86,8 +86,11 @@ file(GLOB_RECURSE SRCS "VideoRecvTest2/*.cpp" "VideoRecvTest2/*.h" "VideoRecvTes
 add_executable(TestVideoRecv ${SRCS} logo.rc logo.qrc)
 #target_link_libraries(TestVideoRecv PRIVATE Qt::Widgets sti avcodec avformat avutil swscale )
 target_include_directories(TestVideoRecv PRIVATE ${FFMPEG_INCLUDE_DIRS})
-target_link_directories   (TestVideoRecv  PRIVATE ${FFMPEG_LIBRARY_DIRS})
-target_link_libraries     (TestVideoRecv  PRIVATE ${FFMPEG_LIBRARIES} sti Qt::Widgets Qt::Network)
+target_link_directories   (TestVideoRecv PRIVATE ${FFMPEG_LIBRARY_DIRS})
+target_link_libraries     (TestVideoRecv PRIVATE ${FFMPEG_LIBRARIES} sti Qt::Widgets Qt::Network)
+set_target_properties     (TestVideoRecv PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
+set_target_properties     (TestVideoRecv PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+set_target_properties     (TestVideoRecv PROPERTIES COMPILE_DEFINITIONS_DEBUG "_CONSOLE")
 
 add_executable(test_grab3 test_grab3.cpp)
 target_link_libraries(test_grab3 PRIVATE ${FFMPEG_LIBRARIES})

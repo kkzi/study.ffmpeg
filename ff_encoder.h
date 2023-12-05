@@ -30,8 +30,9 @@ public:
             av_opt_set(enc_ctx_->priv_data, "tune", "zerolatency", 0);
         }
 
-        auto ret = avcodec_open2(enc_ctx_, codec, NULL);
-        REQUIRE_RET(ret);
+        //auto ret = avcodec_open2(enc_ctx_, codec, NULL);
+        //REQUIRE_RET(ret);
+        int ret = 0;
 
         // mux
         avformat_alloc_output_context2(&fmt_ctx_, nullptr, fmtname.data(), filename.data());

@@ -10,6 +10,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QHBoxLayout>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QTimeZone>
 #include <boost/endian/conversion.hpp>
@@ -18,18 +19,10 @@
 #include <format>
 #include <fstream>
 
+using namespace boost::endian;
 static QString CONFIG_FILE = QDir::homePath() + "/.atom/video_recv_test.bcfg";
-
-using namespace boost::endian;
-
 constexpr static size_t HEAD_OFFSET = 0;
-// constexpr static size_t HEAD_OFFSET = 8;
-constexpr static size_t PCM_FRAME_LEN = 512;
-constexpr static size_t SYNC_LEN = 4;
-constexpr static size_t SFID_LEN = 2;
 constexpr static size_t UPDATE_INTERVAL = 100;
-
-using namespace boost::endian;
 
 static bool is_idle_frame(const uint8_t *ptr)
 {
@@ -53,7 +46,7 @@ static bool is_idle_frame(const Frame &frame)
 }
 
 MainWin::MainWin()
-    : QWidget()
+    : QFrame()
     , timer_(new QTimer(this))
 {
     ui_.setupUi(this);
@@ -71,7 +64,7 @@ MainWin::MainWin()
         // ui_.verticalLayout->removeItem(ui_.verticalLayout->takeAt(2));
     }
     ui_.VideoChannelsEdit->setMinimum(1);
-    ui_.ReservedEdit->setMaximum(256);
+    ui_.ReservedEdit->setMaximum(4096);
     ui_.VideoChannelsEdit->setValue(3);
     playerLayout_ = new QGridLayout(ui_.Player);
     playerLayout_->setContentsMargins(0, 0, 0, 0);
@@ -91,9 +84,22 @@ MainWin::MainWin()
     connect(ui_.Start, &QPushButton::clicked, this, [this](bool checked) {
         return checked ? start() : stop();
     });
+    connect(ui_.SaveAs, &QPushButton::clicked, this, [this]() {
+        auto path = QFileDialog::getSaveFileName(this, QStringLiteral("保存配置文件"), {}, "*.bcfg");
+        if (path.isEmpty()) return;
+        saveCurrentConfig(path);
+    });
+
+    connect(ui_.CurrentConfig, &QPushButton::clicked, this, [this] {
+        auto path = QFileDialog::getOpenFileName(this, QStringLiteral("加载配置文件"), "", "(*.bcfg)");
+        if (path.isEmpty()) return;
+        loadSpecifiedConfig(path);
+        ui_.CurrentConfig->setProperty("path", path);
+        ui_.CurrentConfig->setText(QFileInfo(path).baseName());
+    });
     connect(this, &MainWin::imageReceived, this, &MainWin::paintImage, Qt::QueuedConnection);
 
-    loadLastConfig();
+    loadSpecifiedConfig();
 }
 
 MainWin::~MainWin()
@@ -112,26 +118,15 @@ void MainWin::start()
         delete item;
     }
 
-    auto ip = ui_.IpEdit->text();
-    auto port = ui_.PortEdit->value();
-    auto channel = ui_.ChannelEdit->value();
-    auto timeCode = ui_.TimeCodeEdit->value();
-    auto forwardIp = ui_.ForwardIpEdit->text();
-    auto forwardPort = ui_.ForwardPortEdit->value();
-
-    reserved_ = ui_.ReservedEdit->value();
-    videoFmt_ = ui_.VideoFmt->currentIndex();
-    channels_ = ui_.VideoChannelsEdit->value();
-    bigendian_ = ui_.EndianEdit->currentIndex() == 1;
     id2channel_.clear();
-
-    for (auto i = 0; i < channels_; ++i)
+    auto bufferCapacity = std::pow(2, form_.parseCache) * 1024;
+    for (auto i = 0; i < form_.videoChannelCount; ++i)
     {
         auto player = new QLabel(this);
         playerLayout_->addWidget(player, i / 2, i % 2);
 
-        auto decode = std::make_unique<ff_decoder>();
-        auto rtpurl = std::format("rtp://{}:{}", forwardIp.toStdString(), forwardPort + i * 10);
+        auto decode = std::make_unique<ff_decoder>(bufferCapacity);
+        auto rtpurl = std::format("rtp://{}:{}", form_.forwardIp.toStdString(), form_.forwardPort + i * 10);
         auto fwd = std::make_shared<ff_encoder>("rtp_mpegts", rtpurl, 400, 200, 10);
         decode->on_frame([i, fwd](auto &&frame) {
             // printf("%d %lld\n", i, frame->pts);
@@ -151,8 +146,8 @@ void MainWin::start()
         id2channel_[i].tsfile = std::ofstream(std::format("tsfile_{}.ts", i), std::ios::binary | std::ios::trunc);
     }
 
-    auto videoDataOffset = HEAD_OFFSET + SYNC_LEN + SFID_LEN + (videoFmt_ == 0 ? reserved_ : 0);
-    auto parser = std::make_shared<cortex::cortex_sti_parser>((HEAD_OFFSET + PCM_FRAME_LEN) * 320);
+    auto videoDataOffset = HEAD_OFFSET + form_.syncBytes + form_.sfidBytes + (form_.videoMode == 0 ? form_.videoReserved : 0);
+    auto parser = std::make_shared<cortex::cortex_sti_parser>((HEAD_OFFSET + form_.frameBytes) * bufferCapacity);
     parser->set_tm_msg_callback_fun([offset = videoDataOffset, this](auto &&frame) {
         auto ptr = frame->data();
         auto time = (uint64_t)load_big_u32(ptr + 12) * 1e6 + load_big_u32(ptr + 16);
@@ -168,7 +163,7 @@ void MainWin::start()
     parser->start();
 
     tmc_ = std::make_unique<cortex::crt_tm_client>();
-    tmc_->set_config({ ip.toStdString(), (uint16_t)port, 0 });
+    tmc_->set_config({ form_.receiveIp.toStdString(), (uint16_t)form_.receivePort, 0 });
     tmc_->set_tm_data_callback_fun([parser](auto &&begin, auto &&end) {
         parser->push_data(begin, end);
     });
@@ -178,6 +173,7 @@ void MainWin::start()
     tmc_->start();
 
     timer_->start(UPDATE_INTERVAL);
+    ui_.ConfigFrame->setDisabled(true);
     ui_.Start->setText(QStringLiteral("停止"));
 }
 
@@ -204,6 +200,8 @@ void MainWin::stop()
     sfid_ = 0;
     frameCount_ = 0;
     receivedBytes_ = 0;
+
+    ui_.ConfigFrame->setEnabled(true);
     ui_.Start->setText(QStringLiteral("开始"));
 }
 
@@ -219,11 +217,14 @@ void MainWin::updateDisplay()
 
 void MainWin::dispatchFrame(const Frame &frame)
 {
-    sfid_ = boost::endian::load_big_u16(frame.payload.data() + HEAD_OFFSET + SYNC_LEN);
+    if (form_.sfidIsBigEndian)
+        sfid_ = boost::endian::load_big_u16(frame.payload.data() + HEAD_OFFSET + form_.syncBytes);
+    else
+        sfid_ = boost::endian::load_little_u16(frame.payload.data() + HEAD_OFFSET + form_.syncBytes);
     time_ = frame.time;
     receivedBytes_ += frame.payload.size();
 
-    switch (videoFmt_)
+    switch (form_.videoMode)
     {
     case 0:
         doDispatchColumn(frame);
@@ -273,7 +274,7 @@ void MainWin::doDispatchColumn(const Frame &frame)
     //    }
     //    chan.payload.clear();
     //}
-    split_frame_column_cross(frame, channels_, bigendian_, [this](auto &&idx, auto &&payload) {
+    split_frame_column_cross(frame, form_.videoChannelCount, form_.videoDataIsBigEndian, [this](auto &&idx, auto &&payload) {
         if (!id2channel_.contains(idx)) return;
 
         auto ptr = payload.data();
@@ -291,9 +292,9 @@ void MainWin::doDispatchColumn(const Frame &frame)
 
 void MainWin::doDispatchColumnContinus(const Frame &frame)
 {
-    auto bytesPerChannel = (frame.payload.size() - frame.offset) / channels_;
+    auto bytesPerChannel = (frame.payload.size() - frame.offset) / form_.videoChannelCount;
     auto ptr = (uint8_t *)frame.payload.data() + frame.offset;
-    for (auto i = 0; i < channels_; ++i)
+    for (auto i = 0; i < form_.videoChannelCount; ++i)
     {
         std::vector<uint8_t> line(ptr + i * bytesPerChannel, ptr + (i + 1) * bytesPerChannel);
         auto &chan = id2channel_[i];
@@ -311,18 +312,18 @@ void MainWin::doDispatchColumnContinus(const Frame &frame)
 
 void MainWin::doDispatchRow(const Frame &frame)
 {
-    if (sfid_ < reserved_)
+    if (sfid_ < form_.videoReserved)
     {
         return;
     }
-    int index = (sfid_ - reserved_) % channels_;
+    int index = (sfid_ - form_.videoReserved) % form_.videoChannelCount;
     if (index < 0 || !id2channel_.contains(index))
     {
         return;
     }
     auto ptr = (uint8_t *)frame.payload.data() + frame.offset;
     auto len = frame.payload.size() - frame.offset;
-    if (!bigendian_)
+    if (!form_.videoDataIsBigEndian)
     {
         std::reverse(ptr, ptr + len);
     }
@@ -342,19 +343,19 @@ void MainWin::doDispatchRow(const Frame &frame)
 
 void MainWin::doDispatchRowContinus(const Frame &frame)
 {
-    if (sfid_ < reserved_)
+    if (sfid_ < form_.videoReserved)
     {
         return;
     }
-    auto rows_per_channel = (32 - reserved_) / channels_;
-    int index = (sfid_ - reserved_) / rows_per_channel;
+    auto rows_per_channel = (32 - form_.videoReserved) / form_.videoChannelCount;
+    int index = (sfid_ - form_.videoReserved) / rows_per_channel;
     if (!id2channel_.contains(index))
     {
         return;
     }
     auto ptr = (uint8_t *)frame.payload.data() + frame.offset;
     auto len = frame.payload.size() - frame.offset;
-    if (!bigendian_)
+    if (!form_.videoDataIsBigEndian)
     {
         std::reverse(ptr, ptr + len);
     }
@@ -379,38 +380,60 @@ void MainWin::paintImage(int idx, const QImage &image)
     chan.player->setPixmap(QPixmap::fromImage(image).scaled(chan.player->size()));
 }
 
-void MainWin::saveCurrentConfig()
+void MainWin::saveCurrentConfig(const QString &path)
 {
-    form_.ip = ui_.IpEdit->text();
-    form_.port = ui_.PortEdit->value();
-    form_.video_mode = ui_.VideoFmt->currentIndex();
-    form_.video_count = ui_.ChannelEdit->value();
-    form_.reserved_row_or_col = ui_.ReservedEdit->value();
-    form_.bigendian = ui_.EndianEdit->currentIndex();
+    form_.receiveIp = ui_.IpEdit->text();
+    form_.receivePort = ui_.PortEdit->value();
+    form_.tmChannel = ui_.ChannelEdit->value();
+    form_.tmTimeCode = ui_.TimeCodeEdit->value();
+    form_.frameBytes = ui_.FrameLen->text().toInt();
+    form_.syncBytes = ui_.SyncLen->text().toInt();
+    form_.sfidBytes = ui_.SfidLen->text().toInt();
+    form_.sfidIsBigEndian = ui_.SfidEndian->currentIndex() == 1;
+    form_.videoMode = ui_.VideoFmt->currentIndex();
+    form_.videoChannelCount = ui_.VideoChannelsEdit->value();
+    form_.videoReserved = ui_.ReservedEdit->value();
+    form_.videoDataIsBigEndian = ui_.EndianEdit->currentIndex() == 1;
+    form_.forwardIp = ui_.ForwardIpEdit->text();
+    form_.forwardPort = ui_.ForwardPortEdit->value();
+    form_.parseCache = ui_.ParseCacheMode->currentIndex();
 
-    QFile file(CONFIG_FILE);
+    QFile file(path.isEmpty() ? CONFIG_FILE : path);
     if (file.open(QFile::WriteOnly | QFile::Truncate))
     {
         QDataStream out(&file);
-        out << form_.ip << form_.port << form_.video_mode << form_.video_count << form_.reserved_row_or_col << form_.bigendian;
+        out << form_.receiveIp << form_.receivePort << form_.videoMode << form_.videoChannelCount << form_.videoReserved << form_.sfidIsBigEndian;
+        out << form_.tmChannel << form_.tmTimeCode << form_.frameBytes << form_.syncBytes << form_.sfidBytes << form_.videoDataIsBigEndian << form_.forwardIp
+            << form_.forwardPort << form_.parseCache;
         file.close();
     }
 }
 
-void MainWin::loadLastConfig()
+void MainWin::loadSpecifiedConfig(const QString &path)
 {
-    QFile file(CONFIG_FILE);
+    QFile file(path.isEmpty() ? CONFIG_FILE : path);
     if (file.open(QFile::ReadOnly))
     {
         QDataStream in(&file);
-        in >> form_.ip >> form_.port >> form_.video_mode >> form_.video_count >> form_.reserved_row_or_col >> form_.bigendian;
+        in >> form_.receiveIp >> form_.receivePort >> form_.videoMode >> form_.videoChannelCount >> form_.videoReserved >> form_.sfidIsBigEndian;
+        in >> form_.tmChannel >> form_.tmTimeCode >> form_.frameBytes >> form_.syncBytes >> form_.sfidBytes >> form_.videoDataIsBigEndian >> form_.forwardIp >>
+            form_.forwardPort >> form_.parseCache;
         file.close();
     }
 
-    ui_.IpEdit->setText(form_.ip);
-    ui_.PortEdit->setValue(form_.port);
-    ui_.VideoFmt->setCurrentIndex(form_.video_mode);
-    ui_.ChannelEdit->setValue(form_.video_count);
-    ui_.ReservedEdit->setValue(form_.reserved_row_or_col);
-    ui_.EndianEdit->setCurrentIndex(form_.bigendian ? 1 : 0);
+    ui_.IpEdit->setText(form_.receiveIp);
+    ui_.PortEdit->setValue(form_.receivePort);
+    ui_.ChannelEdit->setValue(form_.tmChannel);
+    ui_.TimeCodeEdit->setValue(form_.tmTimeCode);
+    ui_.FrameLen->setText(QString::number(form_.frameBytes));
+    ui_.SyncLen->setText(QString::number(form_.syncBytes));
+    ui_.SfidLen->setText(QString::number(form_.sfidBytes));
+    ui_.SfidEndian->setCurrentIndex(form_.sfidIsBigEndian ? 1 : 0);
+    ui_.VideoFmt->setCurrentIndex(form_.videoMode);
+    ui_.VideoChannelsEdit->setValue(form_.videoChannelCount);
+    ui_.ReservedEdit->setValue(form_.videoReserved);
+    ui_.EndianEdit->setCurrentIndex(form_.videoDataIsBigEndian ? 1 : 0);
+    ui_.ForwardIpEdit->setText(form_.forwardIp);
+    ui_.ForwardPortEdit->setValue(form_.forwardPort);
+    ui_.ParseCacheMode->setCurrentIndex(form_.parseCache);
 }
