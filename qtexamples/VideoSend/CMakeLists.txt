@@ -1,0 +1,6 @@
+project(VideoSend)
+add_executable(TestVideoSend VideoSendTest.h VideoSendTest.cpp VideoSendTest.ui VideoSampleDialog.h VideoSampleDialog.cpp)
+#target_link_libraries(TestVideoSend sti avcodec avformat avutil avdevice swscale Qt::Widgets Qt::Network)
+target_include_directories(TestVideoSend PRIVATE ${FFMPEG_INCLUDE_DIRS})
+target_link_directories   (TestVideoSend  PRIVATE ${FFMPEG_LIBRARY_DIRS})
+target_link_libraries     (TestVideoSend  PRIVATE ${FFMPEG_LIBRARIES} sti Qt::Widgets Qt::Network)

@@ -1,4 +1,4 @@
-#include "qtexamples/VideoRecvTest2/SplitFrame.h"
+#include "qtexamples/VideoRecv/SplitFrame.h"
 #include <boost/endian/conversion.hpp>
 #include <format>
 #include <fstream>

@@ -14,6 +14,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt5 CONFIG COMPONENTS Core Widgets Network)
 
+include_directories(.)
 include_directories($ENV{BOOST})
 link_directories($ENV{BOOST}/lib64-msvc-14.2)
 
@@ -76,24 +77,14 @@ target_include_directories(test_ts_decode PRIVATE ${FFMPEG_INCLUDE_DIRS})
 target_link_directories   (test_ts_decode  PRIVATE ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries     (test_ts_decode  PRIVATE ${FFMPEG_LIBRARIES} Qt::Gui)
 
-add_executable(TestVideoSend VideoSendTest.h VideoSendTest.cpp VideoSendTest.ui VideoSampleDialog.h VideoSampleDialog.cpp)
-#target_link_libraries(TestVideoSend sti avcodec avformat avutil avdevice swscale Qt::Widgets Qt::Network)
-target_include_directories(TestVideoSend PRIVATE ${FFMPEG_INCLUDE_DIRS})
-target_link_directories   (TestVideoSend  PRIVATE ${FFMPEG_LIBRARY_DIRS})
-target_link_libraries     (TestVideoSend  PRIVATE ${FFMPEG_LIBRARIES} sti Qt::Widgets Qt::Network)
 
-file(GLOB_RECURSE SRCS "VideoRecvTest2/*.cpp" "VideoRecvTest2/*.h" "VideoRecvTest2/*.ui")
-add_executable(TestVideoRecv ${SRCS} logo.rc logo.qrc)
-#target_link_libraries(TestVideoRecv PRIVATE Qt::Widgets sti avcodec avformat avutil swscale )
-target_include_directories(TestVideoRecv PRIVATE ${FFMPEG_INCLUDE_DIRS})
-target_link_directories   (TestVideoRecv PRIVATE ${FFMPEG_LIBRARY_DIRS})
-target_link_libraries     (TestVideoRecv PRIVATE ${FFMPEG_LIBRARIES} sti Qt::Widgets Qt::Network)
-set_target_properties     (TestVideoRecv PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
-set_target_properties     (TestVideoRecv PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
-set_target_properties     (TestVideoRecv PROPERTIES COMPILE_DEFINITIONS_DEBUG "_CONSOLE")
 
 add_executable(test_grab3 test_grab3.cpp)
 target_link_libraries(test_grab3 PRIVATE ${FFMPEG_LIBRARIES})
 
 add_executable(test_grab4 test_grab4.cpp)
 target_link_libraries(test_grab4 PRIVATE ${FFMPEG_LIBRARIES})
+
+add_subdirectory(VideoSend)
+add_subdirectory(VideoRecv)
+
