@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
     pFormatCtx = avformat_alloc_context();
 
     // use gdigrab
-    AVInputFormat *ifmt = av_find_input_format("gdigrab");
+    auto ifmt = av_find_input_format("gdigrab");
     if (!ifmt)
     {
         printf("can't find input device.\n");

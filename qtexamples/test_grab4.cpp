@@ -37,7 +37,7 @@ public:
     void initialize()
     {
         // Initialize format context
-        AVOutputFormat *output_format = av_guess_format("mpegts", nullptr, nullptr);
+        auto *output_format = av_guess_format("mpegts", nullptr, nullptr);
         if (!output_format)
         {
             throw std::runtime_error("Unable to create output format");
