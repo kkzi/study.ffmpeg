@@ -1,6 +1,8 @@
 ﻿#pragma once
 
 #include "Frame.h"
+#include "ff_decoder.h"
+#include "ff_encoder.h"
 #include "sti/cortex_tm_client.h"
 #include "ui_MainWin.h"
 #include <QList>
@@ -15,8 +17,6 @@
 #include <mutex>
 
 struct SwsContext;
-class ff_decoder;
-class ff_encoder;
 class QGridLayout;
 
 struct VideoChannel

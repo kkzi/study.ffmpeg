@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cfte_video_fmt1.hpp"
+#include "ff_capture.h"
 #include "sti/tm_server.h"
 #include "ui_VideoSendTest.h"
 #include <QByteArray>
@@ -14,7 +15,6 @@
 #include <boost/asio/io_context.hpp>
 #include <memory>
 
-class ff_capture;
 class VideoSampleDialog;
 
 class VideoSendTest : public QDialog

@@ -27,6 +27,7 @@ struct PcmFrame
 
 struct PcmFileConfig
 {
+    std::string filename;
     size_t file_offset{ 0 };
     size_t frame_offset{ 0 };
     PcmFrame pcm;
@@ -36,9 +37,8 @@ struct PcmFileConfig
 class PcmFileReader
 {
 public:
-    PcmFileReader(const std::filesystem::path &p, PcmFileConfig cfg)
-        : input_(p, std::ios::binary)
-        , cfg_(std::move(cfg))
+    PcmFileReader(PcmFileConfig cfg)
+        : cfg_(std::move(cfg))
     {
     }
 
@@ -53,12 +53,14 @@ public:
         buffer.reserve(buffer_len);
         std::vector<char> major;
         major.reserve(major_bytes);
-        while (input_.good())
+
+        std::ifstream input(cfg_.filename, std::ios::binary);
+        while (input.good())
         {
             buffer.resize(buffer_len);
-            input_.read(buffer.data(), cfg_.file_offset);
-            input_.read(buffer.data(), major_bytes_with_offset);
-            if (input_.gcount() != major_bytes_with_offset)
+            input.read(buffer.data(), cfg_.file_offset);
+            input.read(buffer.data(), major_bytes_with_offset);
+            if (input.gcount() != major_bytes_with_offset)
             {
                 fmt::println("finished");
                 break;
@@ -106,17 +108,13 @@ private:
     }
 
 private:
-    std::ifstream input_;
     PcmFileConfig cfg_;
 };
 
-int main(int argc, char **argv)
+PcmFileConfig make_file0()
 {
-    std::vector<unsigned char> buffer{ 0xab, 0xcd, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66 };
-    std::string view{ (char *)buffer.data(), buffer.size() };
-
-    static constexpr auto SAC_ZN2023_FILE_PX = "D:/Project/SAC 沈飞/视频格式3/ZN2023-12-01-px";
-    static PcmFileConfig SAC_ZN2023_12_01_PX{ .file_offset = 0,
+    return PcmFileConfig{ .filename = "D:/Project/SAC 沈飞/视频格式3/ZN2023-12-01-px",
+        .file_offset = 0,
         .frame_offset = 8,
         .pcm = { 16, 256, 4, 16 },
         .sfid2ranges = {
@@ -137,9 +135,12 @@ int main(int argc, char **argv)
             { 14, { { 82, 255 } } },
             { 15, { { 82, 255 } } },
         } };
+}
 
-    static constexpr auto SAC_ZN2023_FILE_DX = "D:/Project/SAC 沈飞/视频格式3/ZN2023-12-01-dx";
-    static PcmFileConfig SAC_ZN2023_12_01_DX_1{ .file_offset = 0,
+auto make_file1()
+{
+    return PcmFileConfig{ .filename = "D:/Project/SAC 沈飞/视频格式3/ZN2023-12-01-dx",
+        .file_offset = 0,
         .frame_offset = 8,
         .pcm = { 8, 256, 4, 16 },
         .sfid2ranges = {
@@ -148,18 +149,22 @@ int main(int argc, char **argv)
             { 2, { { 6, 255 } } },
             { 3, { { 6, 255 } } },
         } };
-    static PcmFileConfig SAC_ZN2023_12_01_DX_2{ .file_offset = 0,
-        .frame_offset = 8,
-        .pcm = { 8, 256, 4, 16 },
-        .sfid2ranges = {
-            { 4, { { 6, 255 } } },
-            { 5, { { 6, 255 } } },
-            { 6, { { 6, 255 } } },
-            { 7, { { 6, 255 } } },
-        } };
 
-    PcmFileReader fr(SAC_ZN2023_FILE_DX, SAC_ZN2023_12_01_DX_2);
+    // return PcmFileConfig{ .filename = "D:/Project/SAC 沈飞/视频格式3/ZN2023-12-01-dx",
+    //    .file_offset = 0,
+    //    .frame_offset = 8,
+    //    .pcm = { 8, 256, 4, 16 },
+    //    .sfid2ranges = {
+    //        { 4, { { 6, 255 } } },
+    //        { 5, { { 6, 255 } } },
+    //        { 6, { { 6, 255 } } },
+    //        { 7, { { 6, 255 } } },
+    //    } };
+}
 
+int main(int argc, char **argv)
+{
+    PcmFileReader fr(make_file0());
     std::ofstream output("embedded.ts", std::ios::binary);
     fr.read([&output](auto &&frame) {
         output.write(frame.data(), frame.size());

@@ -1,4 +1,4 @@
-#include "qtexamples/VideoRecv/SplitFrame.h"
+ï»¿#include "qtexamples/VideoRecv/SplitFrame.h"
 #include <boost/endian/conversion.hpp>
 #include <format>
 #include <fstream>
@@ -10,7 +10,7 @@ using namespace boost::endian;
 
 void split_row_cross()
 {
-    std::ifstream in(L"D:/Project/SAC Éò·É/ÊÓÆµÎÊÌâ/²âÊÔÊı¾İ/3Â·ºáÅÅ10M¿ÕÇ°2ĞĞ", std::ios::binary);
+    std::ifstream in(L"D:/Project/SAC æ²ˆé£/è§†é¢‘é—®é¢˜/æµ‹è¯•æ•°æ®/3è·¯æ¨ªæ’10Mç©ºå‰2è¡Œ", std::ios::binary);
 
     std::vector<std::ofstream> outputs;
     for (auto i = 0; i < 3; ++i)
@@ -33,27 +33,35 @@ void split_row_cross()
     }
 }
 
-void split_col_cross()
+template <size_t RowBytes, size_t Offset, size_t ChannelCount, bool BigEndian = true>
+void split_col_cross(std::string file, std::string prefix)
 {
-    std::ifstream in(L"D:/Project/SAC Éò·É/ÊÓÆµÎÊÌâ/²âÊÔÊı¾İ/3Â·ÊÓÆµ´ó¶Ë10M", std::ios::binary);
-
+    std::ifstream in(file, std::ios::binary);
     std::vector<std::ofstream> outputs;
-    for (auto i = 0; i < 3; ++i)
+    for (auto i = 0; i < ChannelCount; ++i)
     {
-        outputs.emplace_back(std::format("output_2{}.ts", i), std::ios::binary);
+        outputs.emplace_back(std::format("{}{}.ts", prefix, i), std::ios::binary);
     }
+    std::string frame(RowBytes, 0);
     while (in.good())
     {
-        std::string frame(520, 0);
         in.read(frame.data(), frame.size());
 
-        auto offset = 8 + 4 + 2 + 2;
-        for (auto i = offset; i < frame.size(); i += 2)
+        for (auto i = Offset; i < frame.size(); i += 2)
         {
-            auto channel = (i - offset) % 3;
-            // outputs[channel].write(frame.data() + i, 2);
-            outputs[channel].write(frame.data() + i + 1, 1);
-            outputs[channel].write(frame.data() + i, 1);
+            auto channel = ((i - Offset) / 2) % ChannelCount;
+
+            if (BigEndian)
+            {
+                outputs[channel].write(frame.data() + i, 1);
+                outputs[channel].write(frame.data() + i + 1, 1);
+            }
+            else
+            {
+
+                outputs[channel].write(frame.data() + i + 1, 1);
+                outputs[channel].write(frame.data() + i, 1);
+            }
         }
     }
 }
@@ -61,5 +69,19 @@ void split_col_cross()
 int main(int argc, char **argv)
 {
     // split_row_cross();
-    split_col_cross();
+
+    // ok
+    // split_col_cross<520, 16, 4>("D:/Project/FTS/SAC æ²ˆé£/è§†é¢‘é—®é¢˜/2023-05-22 4è·¯è§†é¢‘-520.bin", "output_2");
+
+    // æ²¡ç”»é¢ï¼Œæœ‰ä¿¡æ¯
+    // split_col_cross<520, 16, 3, true>("D:/Project/FTS/SAC æ²ˆé£/è§†é¢‘é—®é¢˜/æµ‹è¯•æ•°æ®/3è·¯è§†é¢‘å¤§ç«¯10M", "output_3");
+
+    // ok
+    // split_col_cross<268, 20, 2, false>("D:/Project/FTS/SAC æ²ˆé£/è§†é¢‘é—®é¢˜2/20231017/20230926.bin 16x268", "output_4");
+
+    // æ— ç”»é¢ï¼Œæ— ä¿¡æ¯
+    split_col_cross<1032, 520, 2, true>("D:/Project/FTS/SAC æ²ˆé£/è§†é¢‘é—®é¢˜2/20231017/2023-09-26SF 8x1032", "output_5");
+
+
+
 }
