@@ -28,13 +28,21 @@ add_executable(video_in_pcm video_in_pcm.cpp)
 target_link_libraries(video_in_pcm PRIVATE ${FFMPEG_LIBRARIES} fmt::fmt-header-only)
 
 
-add_executable(ffplay fftools/ffplay.c fftools/ffplay_renderer.c fftools/opt_common.c fftools/cmdutils.c )
+add_executable(ffplay fftools/ffplay.c fftools/ffplay_renderer.c fftools/opt_common.c fftools/cmdutils.c)
 target_include_directories(ffplay PRIVATE fftools)
 find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(ffplay 
     PRIVATE
     $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
     $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+    ${FFMPEG_LIBRARIES}
+)
+
+add_executable(ffprobe fftools/ffprobe.c fftools/opt_common.c fftools/cmdutils.c)
+target_include_directories(ffprobe PRIVATE fftools)
+find_package(SDL2 CONFIG REQUIRED)
+target_link_libraries(ffprobe 
+    PRIVATE
     ${FFMPEG_LIBRARIES}
 )
 
