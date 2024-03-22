@@ -60,8 +60,8 @@
 #include "libswresample/swresample.h"
 #include "libswresample/version.h"
 
-//#include "libpostproc/postprocess.h"
-//#include "libpostproc/version.h"
+#include "libpostproc/postprocess.h"
+#include "libpostproc/version.h"
 
 enum show_muxdemuxers {
     SHOW_DEFAULT,
@@ -852,22 +852,15 @@ static int show_formats_devices(void *optctx, const char *opt, const char *arg, 
     const AVOutputFormat *ofmt = NULL;
     const char *last_name;
     int is_dev;
-    const char *is_device_placeholder = device_only ? "" : ".";
 
-    printf("%s:\n"
-           " D.%s = Demuxing supported\n"
-           " .E%s = Muxing supported\n"
-           "%s"
-           " ---\n",
-           device_only ? "Devices" : "Formats",
-           is_device_placeholder, is_device_placeholder,
-           device_only ? "": " ..d = Is a device\n");
-
+    printf("%s\n"
+           " D. = Demuxing supported\n"
+           " .E = Muxing supported\n"
+           " --\n", device_only ? "Devices:" : "File formats:");
     last_name = "000";
     for (;;) {
         int decode = 0;
         int encode = 0;
-        int device = 0;
         const char *name      = NULL;
         const char *long_name = NULL;
 
@@ -882,7 +875,6 @@ static int show_formats_devices(void *optctx, const char *opt, const char *arg, 
                     name      = ofmt->name;
                     long_name = ofmt->long_name;
                     encode    = 1;
-                    device    = is_dev;
                 }
             }
         }
@@ -897,24 +889,20 @@ static int show_formats_devices(void *optctx, const char *opt, const char *arg, 
                     name      = ifmt->name;
                     long_name = ifmt->long_name;
                     encode    = 0;
-                    device    = is_dev;
                 }
-                if (name && strcmp(ifmt->name, name) == 0) {
+                if (name && strcmp(ifmt->name, name) == 0)
                     decode = 1;
-                    device = is_dev;
-                }
             }
         }
         if (!name)
             break;
         last_name = name;
 
-        printf(" %c%c%s %-15s %s\n",
+        printf(" %c%c %-15s %s\n",
                decode ? 'D' : ' ',
                encode ? 'E' : ' ',
-               device_only ? "" : (device ? "d" : " "),
                name,
-            long_name ? long_name : " ");
+            long_name ? long_name:" ");
     }
     return 0;
 }
