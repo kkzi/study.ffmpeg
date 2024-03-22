@@ -86,7 +86,8 @@ struct AVPacket;
 
 typedef struct Scheduler Scheduler;
 
-enum SchedulerNodeType {
+enum SchedulerNodeType
+{
     SCH_NODE_TYPE_NONE = 0,
     SCH_NODE_TYPE_DEMUX,
     SCH_NODE_TYPE_MUX,
@@ -96,32 +97,45 @@ enum SchedulerNodeType {
     SCH_NODE_TYPE_FILTER_OUT,
 };
 
-typedef struct SchedulerNode {
-    enum SchedulerNodeType  type;
-    unsigned                idx;
-    unsigned                idx_stream;
+typedef struct SchedulerNode
+{
+    enum SchedulerNodeType type;
+    unsigned idx;
+    unsigned idx_stream;
 } SchedulerNode;
 
 typedef int (*SchThreadFunc)(void *arg);
 
-#define SCH_DSTREAM(file, stream)                           \
-    (SchedulerNode){ .type = SCH_NODE_TYPE_DEMUX,           \
-                     .idx = file, .idx_stream = stream }
-#define SCH_MSTREAM(file, stream)                           \
-    (SchedulerNode){ .type = SCH_NODE_TYPE_MUX,             \
-                     .idx = file, .idx_stream = stream }
-#define SCH_DEC(decoder)                                    \
-    (SchedulerNode){ .type = SCH_NODE_TYPE_DEC,             \
-                    .idx = decoder }
-#define SCH_ENC(encoder)                                    \
-    (SchedulerNode){ .type = SCH_NODE_TYPE_ENC,             \
-                    .idx = encoder }
-#define SCH_FILTER_IN(filter, input)                        \
-    (SchedulerNode){ .type = SCH_NODE_TYPE_FILTER_IN,       \
-                     .idx = filter, .idx_stream = input }
-#define SCH_FILTER_OUT(filter, output)                      \
-    (SchedulerNode){ .type = SCH_NODE_TYPE_FILTER_OUT,      \
-                     .idx = filter, .idx_stream = output }
+#define SCH_DSTREAM(file, stream)                                                                                                                              \
+    (SchedulerNode)                                                                                                                                            \
+    {                                                                                                                                                          \
+        .type = SCH_NODE_TYPE_DEMUX, .idx = file, .idx_stream = stream                                                                                         \
+    }
+#define SCH_MSTREAM(file, stream)                                                                                                                              \
+    (SchedulerNode)                                                                                                                                            \
+    {                                                                                                                                                          \
+        .type = SCH_NODE_TYPE_MUX, .idx = file, .idx_stream = stream                                                                                           \
+    }
+#define SCH_DEC(decoder)                                                                                                                                       \
+    (SchedulerNode)                                                                                                                                            \
+    {                                                                                                                                                          \
+        .type = SCH_NODE_TYPE_DEC, .idx = decoder                                                                                                              \
+    }
+#define SCH_ENC(encoder)                                                                                                                                       \
+    (SchedulerNode)                                                                                                                                            \
+    {                                                                                                                                                          \
+        .type = SCH_NODE_TYPE_ENC, .idx = encoder                                                                                                              \
+    }
+#define SCH_FILTER_IN(filter, input)                                                                                                                           \
+    (SchedulerNode)                                                                                                                                            \
+    {                                                                                                                                                          \
+        .type = SCH_NODE_TYPE_FILTER_IN, .idx = filter, .idx_stream = input                                                                                    \
+    }
+#define SCH_FILTER_OUT(filter, output)                                                                                                                         \
+    (SchedulerNode)                                                                                                                                            \
+    {                                                                                                                                                          \
+        .type = SCH_NODE_TYPE_FILTER_OUT, .idx = filter, .idx_stream = output                                                                                  \
+    }
 
 Scheduler *sch_alloc(void);
 void sch_free(Scheduler **sch);
@@ -174,8 +188,7 @@ int sch_add_demux_stream(Scheduler *sch, unsigned demux_idx);
  * @retval ">=0" Index of the newly-created decoder.
  * @retval "<0"  Error code.
  */
-int sch_add_dec(Scheduler *sch, SchThreadFunc func, void *ctx,
-                int send_end_ts);
+int sch_add_dec(Scheduler *sch, SchThreadFunc func, void *ctx, int send_end_ts);
 
 /**
  * Add a filtergraph to the scheduler.
@@ -188,8 +201,7 @@ int sch_add_dec(Scheduler *sch, SchThreadFunc func, void *ctx,
  * @retval ">=0" Index of the newly-created filtergraph.
  * @retval "<0"  Error code.
  */
-int sch_add_filtergraph(Scheduler *sch, unsigned nb_inputs, unsigned nb_outputs,
-                        SchThreadFunc func, void *ctx);
+int sch_add_filtergraph(Scheduler *sch, unsigned nb_inputs, unsigned nb_outputs, SchThreadFunc func, void *ctx);
 
 /**
  * Add a muxer to the scheduler.
@@ -231,8 +243,7 @@ int sch_add_filtergraph(Scheduler *sch, unsigned nb_inputs, unsigned nb_outputs,
  * @retval ">=0" Index of the newly-created muxer.
  * @retval "<0"  Error code.
  */
-int sch_add_mux(Scheduler *sch, SchThreadFunc func, int (*init)(void *),
-                void *ctx, int sdp_auto, unsigned thread_queue_size);
+int sch_add_mux(Scheduler *sch, SchThreadFunc func, int (*init)(void *), void *ctx, int sdp_auto, unsigned thread_queue_size);
 
 /**
  * Default size of a packet thread queue.  For muxing this can be overridden by
@@ -266,8 +277,7 @@ int sch_add_mux_stream(Scheduler *sch, unsigned mux_idx);
  * @param max_packets maximum Maximum number of buffered packets after
  *                            data_threshold is reached.
  */
-void sch_mux_stream_buffering(Scheduler *sch, unsigned mux_idx, unsigned stream_idx,
-                              size_t data_threshold, int max_packets);
+void sch_mux_stream_buffering(Scheduler *sch, unsigned mux_idx, unsigned stream_idx, size_t data_threshold, int max_packets);
 
 /**
  * Signal to the scheduler that the specified muxed stream is initialized and
@@ -298,8 +308,7 @@ int sch_sdp_filename(Scheduler *sch, const char *sdp_filename);
  * @retval ">=0" Index of the newly-created encoder.
  * @retval "<0"  Error code.
  */
-int sch_add_enc(Scheduler *sch, SchThreadFunc func, void *ctx,
-                int (*open_cb)(void *func_arg, const struct AVFrame *frame));
+int sch_add_enc(Scheduler *sch, SchThreadFunc func, void *ctx, int (*open_cb)(void *func_arg, const struct AVFrame *frame));
 
 /**
  * Add an pre-encoding sync queue to the scheduler.
@@ -311,12 +320,12 @@ int sch_add_enc(Scheduler *sch, SchThreadFunc func, void *ctx,
  * @retval "<0"  Error code.
  */
 int sch_add_sq_enc(Scheduler *sch, uint64_t buf_size_us, void *logctx);
-int sch_sq_add_enc(Scheduler *sch, unsigned sq_idx, unsigned enc_idx,
-                   int limiting, uint64_t max_frames);
+int sch_sq_add_enc(Scheduler *sch, unsigned sq_idx, unsigned enc_idx, int limiting, uint64_t max_frames);
 
 int sch_connect(Scheduler *sch, SchedulerNode src, SchedulerNode dst);
 
-enum DemuxSendFlags {
+enum DemuxSendFlags
+{
     /**
      * Treat the packet as an EOF for SCH_NODE_TYPE_MUX destinations
      * send normally to other types.
@@ -343,8 +352,7 @@ enum DemuxSendFlags {
  * @retval AVERROR_EXIT all consumers are done, should terminate demuxing
  * @retval "anoter negative error code" other failure
  */
-int sch_demux_send(Scheduler *sch, unsigned demux_idx, struct AVPacket *pkt,
-                   unsigned flags);
+int sch_demux_send(Scheduler *sch, unsigned demux_idx, struct AVPacket *pkt, unsigned flags);
 
 /**
  * Called by decoder tasks to receive a packet for decoding.
@@ -400,8 +408,7 @@ int sch_dec_send(Scheduler *sch, unsigned dec_idx, struct AVFrame *frame);
  *                         in_idx=nb_inputs on entry to this function.
  * @retval AVERROR_EOF No more frames will arrive, should terminate filtering.
  */
-int sch_filter_receive(Scheduler *sch, unsigned fg_idx,
-                       unsigned *in_idx, struct AVFrame *frame);
+int sch_filter_receive(Scheduler *sch, unsigned fg_idx, unsigned *in_idx, struct AVFrame *frame);
 /**
  * Called by filter tasks to signal that a filter input will no longer accept input.
  *
@@ -423,8 +430,7 @@ void sch_filter_receive_finish(Scheduler *sch, unsigned fg_idx, unsigned in_idx)
  * @retval AVERROR_EOF all consumers are done
  * @retval "anoter negative error code" other failure
  */
-int sch_filter_send(Scheduler *sch, unsigned fg_idx, unsigned out_idx,
-                    struct AVFrame *frame);
+int sch_filter_send(Scheduler *sch, unsigned fg_idx, unsigned out_idx, struct AVFrame *frame);
 
 int sch_filter_command(Scheduler *sch, unsigned fg_idx, struct AVFrame *frame);
 
@@ -453,7 +459,7 @@ int sch_enc_receive(Scheduler *sch, unsigned enc_idx, struct AVFrame *frame);
  * @retval 0     success
  * @retval "<0"  Error code.
  */
-int sch_enc_send   (Scheduler *sch, unsigned enc_idx, struct AVPacket *pkt);
+int sch_enc_send(Scheduler *sch, unsigned enc_idx, struct AVPacket *pkt);
 
 /**
  * Called by muxer tasks to obtain packets for muxing. Will wait for a packet
@@ -481,9 +487,7 @@ int sch_mux_receive(Scheduler *sch, unsigned mux_idx, struct AVPacket *pkt);
  */
 void sch_mux_receive_finish(Scheduler *sch, unsigned mux_idx, unsigned stream_idx);
 
-int sch_mux_sub_heartbeat_add(Scheduler *sch, unsigned mux_idx, unsigned stream_idx,
-                              unsigned dec_idx);
-int sch_mux_sub_heartbeat(Scheduler *sch, unsigned mux_idx, unsigned stream_idx,
-                          const AVPacket *pkt);
+int sch_mux_sub_heartbeat_add(Scheduler *sch, unsigned mux_idx, unsigned stream_idx, unsigned dec_idx);
+int sch_mux_sub_heartbeat(Scheduler *sch, unsigned mux_idx, unsigned stream_idx, const AVPacket *pkt);
 
 #endif /* FFTOOLS_FFMPEG_SCHED_H */

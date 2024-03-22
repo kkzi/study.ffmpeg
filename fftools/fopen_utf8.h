@@ -27,7 +27,7 @@
  * CRT, and FILE* handles can't be shared across them.) */
 
 #ifdef _WIN32
-#include "libavutil/wchar_filename.h"
+    #include "libavutil/wchar_filename.h"
 
 static inline FILE *fopen_utf8(const char *path_utf8, const char *mode)
 {
@@ -37,12 +37,11 @@ static inline FILE *fopen_utf8(const char *path_utf8, const char *mode)
     /* convert UTF-8 to wide chars */
     if (get_extended_win32_path(path_utf8, &path_w)) /* This sets errno on error. */
         return NULL;
-    if (!path_w)
-        goto fallback;
+    if (!path_w) goto fallback;
 
-    if (utf8towchar(mode, &mode_w))
-        return NULL;
-    if (!mode_w) {
+    if (utf8towchar(mode, &mode_w)) return NULL;
+    if (!mode_w)
+    {
         /* If failing to interpret the mode string as utf8, it is an invalid
          * parameter. */
         av_freep(&path_w);

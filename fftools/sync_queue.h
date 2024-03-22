@@ -25,18 +25,20 @@
 
 #include "libavutil/frame.h"
 
-enum SyncQueueType {
+enum SyncQueueType
+{
     SYNC_QUEUE_PACKETS,
     SYNC_QUEUE_FRAMES,
 };
 
-typedef union SyncQueueFrame {
-    AVFrame  *f;
+typedef union SyncQueueFrame
+{
+    AVFrame *f;
     AVPacket *p;
 } SyncQueueFrame;
 
 #define SQFRAME(frame) ((SyncQueueFrame){ .f = (frame) })
-#define SQPKT(pkt)     ((SyncQueueFrame){ .p = (pkt) })
+#define SQPKT(pkt) ((SyncQueueFrame){ .p = (pkt) })
 
 /**
  * A sync queue provides timestamp synchronization between multiple streams.
@@ -51,7 +53,7 @@ typedef struct SyncQueue SyncQueue;
  * @param buf_size_us maximum duration that will be buffered in microseconds
  */
 SyncQueue *sq_alloc(enum SyncQueueType type, int64_t buf_size_us, void *logctx);
-void       sq_free(SyncQueue **sq);
+void sq_free(SyncQueue **sq);
 
 /**
  * Add a new stream to the sync queue.
@@ -68,8 +70,7 @@ int sq_add_stream(SyncQueue *sq, int limiting);
  * Limit the number of output frames for stream with index stream_idx
  * to max_frames.
  */
-void sq_limit_frames(SyncQueue *sq, unsigned int stream_idx,
-                     uint64_t max_frames);
+void sq_limit_frames(SyncQueue *sq, unsigned int stream_idx, uint64_t max_frames);
 
 /**
  * Set a constant output audio frame size, in samples. Can only be used with
@@ -78,8 +79,7 @@ void sq_limit_frames(SyncQueue *sq, unsigned int stream_idx,
  * All output frames will have exactly frame_samples audio samples, except
  * possibly for the last one, which may have fewer.
  */
-void sq_frame_samples(SyncQueue *sq, unsigned int stream_idx,
-                      int frame_samples);
+void sq_frame_samples(SyncQueue *sq, unsigned int stream_idx, int frame_samples);
 
 /**
  * Submit a frame for the stream with index stream_idx.
@@ -115,4 +115,4 @@ int sq_send(SyncQueue *sq, unsigned int stream_idx, SyncQueueFrame frame);
  */
 int sq_receive(SyncQueue *sq, int stream_idx, SyncQueueFrame frame);
 
-#endif // FFTOOLS_SYNC_QUEUE_H
+#endif  // FFTOOLS_SYNC_QUEUE_H

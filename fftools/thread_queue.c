@@ -29,37 +29,40 @@
 #include "objpool.h"
 #include "thread_queue.h"
 
-enum {
+enum
+{
     FINISHED_SEND = (1 << 0),
     FINISHED_RECV = (1 << 1),
 };
 
-typedef struct FifoElem {
-    void        *obj;
+typedef struct FifoElem
+{
+    void *obj;
     unsigned int stream_idx;
 } FifoElem;
 
-struct ThreadQueue {
-    int              *finished;
-    unsigned int    nb_streams;
+struct ThreadQueue
+{
+    int *finished;
+    unsigned int nb_streams;
 
-    AVFifo  *fifo;
+    AVFifo *fifo;
 
     ObjPool *obj_pool;
-    void   (*obj_move)(void *dst, void *src);
+    void (*obj_move)(void *dst, void *src);
 
     pthread_mutex_t lock;
-    pthread_cond_t  cond;
+    pthread_cond_t cond;
 };
 
 void tq_free(ThreadQueue **ptq)
 {
     ThreadQueue *tq = *ptq;
 
-    if (!tq)
-        return;
+    if (!tq) return;
 
-    if (tq->fifo) {
+    if (tq->fifo)
+    {
         FifoElem elem;
         while (av_fifo_read(tq->fifo, &elem, 1) >= 0)
             objpool_release(tq->obj_pool, &elem.obj);
@@ -76,37 +79,35 @@ void tq_free(ThreadQueue **ptq)
     av_freep(ptq);
 }
 
-ThreadQueue *tq_alloc(unsigned int nb_streams, size_t queue_size,
-                      ObjPool *obj_pool, void (*obj_move)(void *dst, void *src))
+ThreadQueue *tq_alloc(unsigned int nb_streams, size_t queue_size, ObjPool *obj_pool, void (*obj_move)(void *dst, void *src))
 {
     ThreadQueue *tq;
     int ret;
 
     tq = av_mallocz(sizeof(*tq));
-    if (!tq)
-        return NULL;
+    if (!tq) return NULL;
 
     ret = pthread_cond_init(&tq->cond, NULL);
-    if (ret) {
+    if (ret)
+    {
         av_freep(&tq);
         return NULL;
     }
 
     ret = pthread_mutex_init(&tq->lock, NULL);
-    if (ret) {
+    if (ret)
+    {
         pthread_cond_destroy(&tq->cond);
         av_freep(&tq);
         return NULL;
     }
 
     tq->finished = av_calloc(nb_streams, sizeof(*tq->finished));
-    if (!tq->finished)
-        goto fail;
+    if (!tq->finished) goto fail;
     tq->nb_streams = nb_streams;
 
     tq->fifo = av_fifo_alloc2(queue_size, sizeof(FifoElem), 0);
-    if (!tq->fifo)
-        goto fail;
+    if (!tq->fifo) goto fail;
 
     tq->obj_pool = obj_pool;
     tq->obj_move = obj_move;
@@ -127,7 +128,8 @@ int tq_send(ThreadQueue *tq, unsigned int stream_idx, void *data)
 
     pthread_mutex_lock(&tq->lock);
 
-    if (*finished & FINISHED_SEND) {
+    if (*finished & FINISHED_SEND)
+    {
         ret = AVERROR(EINVAL);
         goto finish;
     }
@@ -135,15 +137,17 @@ int tq_send(ThreadQueue *tq, unsigned int stream_idx, void *data)
     while (!(*finished & FINISHED_RECV) && !av_fifo_can_write(tq->fifo))
         pthread_cond_wait(&tq->cond, &tq->lock);
 
-    if (*finished & FINISHED_RECV) {
+    if (*finished & FINISHED_RECV)
+    {
         ret = AVERROR_EOF;
         *finished |= FINISHED_SEND;
-    } else {
+    }
+    else
+    {
         FifoElem elem = { .stream_idx = stream_idx };
 
         ret = objpool_get(tq->obj_pool, &elem.obj);
-        if (ret < 0)
-            goto finish;
+        if (ret < 0) goto finish;
 
         tq->obj_move(elem.obj, data);
 
@@ -158,27 +162,28 @@ finish:
     return ret;
 }
 
-static int receive_locked(ThreadQueue *tq, int *stream_idx,
-                          void *data)
+static int receive_locked(ThreadQueue *tq, int *stream_idx, void *data)
 {
     FifoElem elem;
     unsigned int nb_finished = 0;
 
-    if (av_fifo_read(tq->fifo, &elem, 1) >= 0) {
+    if (av_fifo_read(tq->fifo, &elem, 1) >= 0)
+    {
         tq->obj_move(data, elem.obj);
         objpool_release(tq->obj_pool, &elem.obj);
         *stream_idx = elem.stream_idx;
         return 0;
     }
 
-    for (unsigned int i = 0; i < tq->nb_streams; i++) {
-        if (!(tq->finished[i] & FINISHED_SEND))
-            continue;
+    for (unsigned int i = 0; i < tq->nb_streams; i++)
+    {
+        if (!(tq->finished[i] & FINISHED_SEND)) continue;
 
         /* return EOF to the consumer at most once for each stream */
-        if (!(tq->finished[i] & FINISHED_RECV)) {
+        if (!(tq->finished[i] & FINISHED_RECV))
+        {
             tq->finished[i] |= FINISHED_RECV;
-            *stream_idx   = i;
+            *stream_idx = i;
             return AVERROR_EOF;
         }
 
@@ -196,9 +201,11 @@ int tq_receive(ThreadQueue *tq, int *stream_idx, void *data)
 
     pthread_mutex_lock(&tq->lock);
 
-    while (1) {
+    while (1)
+    {
         ret = receive_locked(tq, stream_idx, data);
-        if (ret == AVERROR(EAGAIN)) {
+        if (ret == AVERROR(EAGAIN))
+        {
             pthread_cond_wait(&tq->cond, &tq->lock);
             continue;
         }
@@ -206,8 +213,7 @@ int tq_receive(ThreadQueue *tq, int *stream_idx, void *data)
         break;
     }
 
-    if (ret == 0)
-        pthread_cond_broadcast(&tq->cond);
+    if (ret == 0) pthread_cond_broadcast(&tq->cond);
 
     pthread_mutex_unlock(&tq->lock);
 

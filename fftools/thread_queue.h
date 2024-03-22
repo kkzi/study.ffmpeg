@@ -36,9 +36,8 @@ typedef struct ThreadQueue ThreadQueue;
  *                 queue; the pool becomes owned by the queue
  * @param callback that moves the contents between two data pointers
  */
-ThreadQueue *tq_alloc(unsigned int nb_streams, size_t queue_size,
-                      ObjPool *obj_pool, void (*obj_move)(void *dst, void *src));
-void         tq_free(ThreadQueue **tq);
+ThreadQueue *tq_alloc(unsigned int nb_streams, size_t queue_size, ObjPool *obj_pool, void (*obj_move)(void *dst, void *src));
+void tq_free(ThreadQueue **tq);
 
 /**
  * Send an item for the given stream to the queue.
@@ -78,4 +77,4 @@ int tq_receive(ThreadQueue *tq, int *stream_idx, void *data);
  */
 void tq_receive_finish(ThreadQueue *tq, unsigned int stream_idx);
 
-#endif // FFTOOLS_THREAD_QUEUE_H
+#endif  // FFTOOLS_THREAD_QUEUE_H

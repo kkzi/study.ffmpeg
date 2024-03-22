@@ -27,8 +27,7 @@ typedef struct VkRenderer VkRenderer;
 
 VkRenderer *vk_get_renderer(void);
 
-int vk_renderer_create(VkRenderer *renderer, SDL_Window *window,
-                       AVDictionary *opt);
+int vk_renderer_create(VkRenderer *renderer, SDL_Window *window, AVDictionary *opt);
 
 int vk_renderer_get_hw_dev(VkRenderer *renderer, AVBufferRef **dev);
 

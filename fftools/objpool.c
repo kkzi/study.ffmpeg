@@ -27,26 +27,25 @@
 
 #include "objpool.h"
 
-struct ObjPool {
-    void        *pool[32];
+struct ObjPool
+{
+    void *pool[32];
     unsigned int pool_count;
 
     ObjPoolCBAlloc alloc;
     ObjPoolCBReset reset;
-    ObjPoolCBFree  free;
+    ObjPoolCBFree free;
 };
 
-ObjPool *objpool_alloc(ObjPoolCBAlloc cb_alloc, ObjPoolCBReset cb_reset,
-                       ObjPoolCBFree cb_free)
+ObjPool *objpool_alloc(ObjPoolCBAlloc cb_alloc, ObjPoolCBReset cb_reset, ObjPoolCBFree cb_free)
 {
     ObjPool *op = av_mallocz(sizeof(*op));
 
-    if (!op)
-        return NULL;
+    if (!op) return NULL;
 
     op->alloc = cb_alloc;
     op->reset = cb_reset;
-    op->free  = cb_free;
+    op->free = cb_free;
 
     return op;
 }
@@ -55,8 +54,7 @@ void objpool_free(ObjPool **pop)
 {
     ObjPool *op = *pop;
 
-    if (!op)
-        return;
+    if (!op) return;
 
     for (unsigned int i = 0; i < op->pool_count; i++)
         op->free(&op->pool[i]);
@@ -64,12 +62,14 @@ void objpool_free(ObjPool **pop)
     av_freep(pop);
 }
 
-int  objpool_get(ObjPool *op, void **obj)
+int objpool_get(ObjPool *op, void **obj)
 {
-    if (op->pool_count) {
+    if (op->pool_count)
+    {
         *obj = op->pool[--op->pool_count];
         op->pool[op->pool_count] = NULL;
-    } else
+    }
+    else
         *obj = op->alloc();
 
     return *obj ? 0 : AVERROR(ENOMEM);
@@ -77,8 +77,7 @@ int  objpool_get(ObjPool *op, void **obj)
 
 void objpool_release(ObjPool *op, void **obj)
 {
-    if (!*obj)
-        return;
+    if (!*obj) return;
 
     op->reset(*obj);
 

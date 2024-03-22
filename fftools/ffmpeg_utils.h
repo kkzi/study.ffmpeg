@@ -27,8 +27,9 @@
 
 #include "libavcodec/packet.h"
 
-typedef struct Timestamp {
-    int64_t    ts;
+typedef struct Timestamp
+{
+    int64_t ts;
     AVRational tb;
 } Timestamp;
 
@@ -53,4 +54,4 @@ static inline void frame_move(void *dst, void *src)
     av_frame_move_ref(dst, src);
 }
 
-#endif // FFTOOLS_FFMPEG_UTILS_H
+#endif  // FFTOOLS_FFMPEG_UTILS_H

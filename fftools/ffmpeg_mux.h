@@ -34,7 +34,8 @@
 #include "libavutil/fifo.h"
 #include "libavutil/thread.h"
 
-typedef struct MuxStream {
+typedef struct MuxStream
+{
     OutputStream ost;
 
     // name used for logging
@@ -44,9 +45,9 @@ typedef struct MuxStream {
     AVFifo *muxing_queue;
 
     AVBSFContext *bsf_ctx;
-    AVPacket     *bsf_pkt;
+    AVPacket *bsf_pkt;
 
-    AVPacket     *pkt;
+    AVPacket *pkt;
 
     EncStats stats;
 
@@ -72,7 +73,7 @@ typedef struct MuxStream {
      * used for making up missing dts values */
     int64_t last_mux_dts;
 
-    int64_t    stream_duration;
+    int64_t stream_duration;
     AVRational stream_duration_tb;
 
     // state for av_rescale_delta() call for audio in write_packet()
@@ -86,7 +87,8 @@ typedef struct MuxStream {
     int streamcopy_started;
 } MuxStream;
 
-typedef struct Muxer {
+typedef struct Muxer
+{
     OutputFile of;
 
     // name used for logging
@@ -94,7 +96,7 @@ typedef struct Muxer {
 
     AVFormatContext *fc;
 
-    pthread_t    thread;
+    pthread_t thread;
     ThreadQueue *tq;
 
     AVDictionary *opts;
@@ -117,7 +119,7 @@ int mux_check_init(Muxer *mux);
 
 static MuxStream *ms_from_ost(OutputStream *ost)
 {
-    return (MuxStream*)ost;
+    return (MuxStream *)ost;
 }
 
 #endif /* FFTOOLS_FFMPEG_MUX_H */
