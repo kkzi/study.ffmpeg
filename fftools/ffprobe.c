@@ -4387,7 +4387,7 @@ int main(int argc, char **argv)
     avdevice_register_all();
 #endif
 
-    show_banner(argc, argv, options);
+    //show_banner(argc, argv, options);
     ret = parse_options(NULL, argc, argv, options, opt_input_file);
     if (ret < 0)
     {

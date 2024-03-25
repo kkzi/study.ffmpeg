@@ -62,5 +62,3 @@ target_link_libraries(ffprobe
     ${FFMPEG_LIBRARIES}
 )
 
- 
-#add_subdirectory(ffplayer-main)
