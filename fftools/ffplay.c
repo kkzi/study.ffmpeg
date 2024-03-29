@@ -2927,7 +2927,7 @@ static int read_thread(void *arg)
     /* open the streams */
     if (st_index[AVMEDIA_TYPE_AUDIO] >= 0)
     {
-        stream_component_open(is, st_index[AVMEDIA_TYPE_AUDIO]);
+        //stream_component_open(is, st_index[AVMEDIA_TYPE_AUDIO]);
     }
 
     ret = -1;

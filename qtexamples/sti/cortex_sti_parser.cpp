@@ -1,9 +1,9 @@
-#include "cortex_sti_parser.h"
+ï»¿#include "cortex_sti_parser.h"
 #include "lockfree_spsc_queue.h"
 #include <iostream>
 
-const static int32_t CORTEX_MSG_HEADER = 1234567890;   // Cortex Êı¾İ°üÍ·
-const static int32_t CORTEX_MSG_TAILER = -1234567890;  // Cortex Êı¾İ°üÎ²
+const static int32_t CORTEX_MSG_HEADER = 1234567890;   // Cortex æ•°æ®åŒ…å¤´
+const static int32_t CORTEX_MSG_TAILER = -1234567890;  // Cortex æ•°æ®åŒ…å°¾
 
 namespace cortex
 {
@@ -45,7 +45,7 @@ namespace cortex
             imp_->lost_count_ = 0;
 
             imp_->parse_thread_ = std::thread([=]() {
-                //³õÊ¼»¯CortexÏûÏ¢Í·ºÍÎ²
+                //åˆå§‹åŒ–Cortexæ¶ˆæ¯å¤´å’Œå°¾
                 std::vector<uint8_t> msg_head(sizeof(int32_t));
                 memcpy(msg_head.data(), &CORTEX_MSG_HEADER, sizeof(CORTEX_MSG_HEADER));
                 std::reverse(msg_head.begin(), msg_head.end());
@@ -60,12 +60,12 @@ namespace cortex
                     while (imp_->is_running_)
                     {
                         auto poped_data = imp_->data_buf_.pop();
-                        //µ¯³ö»º´æËùÓĞÊı¾İµ½½âÎöÆ÷»º´æ
+                        //å¼¹å‡ºç¼“å­˜æ‰€æœ‰æ•°æ®åˆ°è§£æå™¨ç¼“å­˜
                         auto existed_size = imp_->parse_buf_.size();
                         imp_->parse_buf_.resize(existed_size + poped_data->size());
                         std::copy(poped_data->begin(), poped_data->end(), imp_->parse_buf_.begin() + existed_size);
 
-                        //ËÑË÷CortexÏûÏ¢Í·
+                        //æœç´¢Cortexæ¶ˆæ¯å¤´
                         auto head = std::search(imp_->parse_buf_.begin(), imp_->parse_buf_.end(), msg_head.begin(), msg_head.end());
                         auto index = 0, len = 0, tail = 0;
                         while (head != imp_->parse_buf_.end())
@@ -73,14 +73,14 @@ namespace cortex
                             index = head - imp_->parse_buf_.begin();
                             if (index + sizeof(int32_t) * 2 < imp_->parse_buf_.size())
                             {
-                                //¸ù¾İSTI»ñÈ¡Êı¾İ³¤¶È
+                                //æ ¹æ®STIè·å–æ•°æ®é•¿åº¦
                                 std::copy(head + sizeof(int32_t), head + sizeof(int32_t) * 2, vec_4bytes.begin());
                                 std::reverse(vec_4bytes.begin(), vec_4bytes.end());
                                 memcpy(&len, vec_4bytes.data(), sizeof(int32_t));
-                                //ÅĞ¶Ï»º´æÄÚÊÇ·ñ°üº¬ÍêÕû¸Ã°üÊı¾İ
+                                //åˆ¤æ–­ç¼“å­˜å†…æ˜¯å¦åŒ…å«å®Œæ•´è¯¥åŒ…æ•°æ®
                                 if (index + len <= imp_->parse_buf_.size())
                                 {
-                                    //¸ù¾İSTI»ñÈ¡TCP-tail
+                                    //æ ¹æ®STIè·å–TCP-tail
                                     std::copy(head + len - sizeof(int32_t), head + len, vec_4bytes.begin());
                                     std::reverse(vec_4bytes.begin(), vec_4bytes.end());
                                     memcpy(&tail, vec_4bytes.data(), sizeof(int32_t));
@@ -98,7 +98,7 @@ namespace cortex
                                         // TODO:log frame error
                                         std::cerr << "[cortex_sti_parser]: "
                                                   << "telemetry message format error." << std::endl;
-                                        //Ö¡¸ñÊ½´íÎóÔÚµ±Ç°Ö¡Í·ºó¼ÌĞøÑ°ÕÒÖ¡Í·
+                                        //å¸§æ ¼å¼é”™è¯¯åœ¨å½“å‰å¸§å¤´åç»§ç»­å¯»æ‰¾å¸§å¤´
                                         head = std::search(head + sizeof(CORTEX_MSG_HEADER), imp_->parse_buf_.end(), msg_head.begin(), msg_head.end());
                                     }
                                 }
@@ -119,7 +119,7 @@ namespace cortex
                         }
                         else if (imp_->parse_buf_.size() > 3)
                         {
-                            //Ô¤Áô3¸ö×Ö½Ú·ÀÖ¹°üÍ·¿ç°ü
+                            //é¢„ç•™3ä¸ªå­—èŠ‚é˜²æ­¢åŒ…å¤´è·¨åŒ…
                             imp_->parse_buf_.erase(imp_->parse_buf_.begin(), head - 3);
                         }
                     }

@@ -1,8 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-project(ffmpeg-study)
-
-set(CMAKE_CXX_STANDARD 23)
-
 #add_link_options(/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 
 set(QT_DIR $ENV{QTDIR})
@@ -15,9 +10,6 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt5 CONFIG COMPONENTS Core Widgets Network)
 
 include_directories(.)
-include_directories($ENV{BOOST})
-link_directories($ENV{BOOST}/lib64-msvc-14.2)
-
 
 #set(FFMPEG_DIR D:/Downloads/ffmpeg-5.1.2)
 #include_directories(
@@ -27,11 +19,6 @@ link_directories($ENV{BOOST}/lib64-msvc-14.2)
 #)
 ##link_directories(${FFMPEG_DIR}/ffbuild/debug/bin)
 #link_directories(${FFMPEG_DIR}/ffbuild/release/lib)
-
-find_package(FFMPEG REQUIRED)
-
-include_directories(${FFMPEG_INCLUDE_DIRS})
-link_directories   (${FFMPEG_LIBRARY_DIRS})
 
 
 #add_executable(ffplayer main.cpp ffplayer.cpp)
@@ -50,11 +37,15 @@ target_include_directories(fftest2 PRIVATE ${FFMPEG_INCLUDE_DIRS})
 target_link_directories(fftest2  PRIVATE ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries(fftest2  PRIVATE ${FFMPEG_LIBRARIES})
 
+
+set(Boost_NO_WARN_NEW_VERSIONS ON)
+find_package(Boost COMPONENTS thread REQUIRED)
+link_directories(${Boost_LIBRARY_DIRS})
 add_executable(testgrab test_grab.cpp)
 #target_link_libraries(testgrab sti avdevice avcodec avformat avutil swscale )
 target_include_directories(testgrab PRIVATE ${FFMPEG_INCLUDE_DIRS})
 target_link_directories   (testgrab  PRIVATE ${FFMPEG_LIBRARY_DIRS})
-target_link_libraries     (testgrab  PRIVATE ${FFMPEG_LIBRARIES} sti)
+target_link_libraries     (testgrab  PRIVATE ${FFMPEG_LIBRARIES} sti Boost::thread)
 
 add_executable(testgrab2 test_grab2.cpp)
 #target_link_libraries(testgrab2 avdevice avcodec avformat avutil swscale )
@@ -68,6 +59,7 @@ add_executable(test_recv_fmt1 test_recv_fmt1.cpp)
 target_include_directories(test_recv_fmt1 PRIVATE ${FFMPEG_INCLUDE_DIRS})
 target_link_directories   (test_recv_fmt1  PRIVATE ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries     (test_recv_fmt1  PRIVATE ${FFMPEG_LIBRARIES} sti)
+
 
 #add_subdirectory(VideoRecvTest2)
 

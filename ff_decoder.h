@@ -145,15 +145,18 @@ private:
             AVDictionary *opts = NULL;
             // av_dict_set_int(&opts, "resync_size", 2048, 0);
             // av_dict_set_int(&opts, "max_packet_size", 4096, 0);
-            ret = avformat_open_input(&fmt_ctx_, input_.c_str(), nullptr, &opts);
-            if (interrupted_) return;
-            REQUIRE_RET(ret);
+            // av_dict_set_int(&opts, "max_probe_size", 4096, 0);
+            fmt_ctx_->format_probesize = 0x800;
             fmt_ctx_->max_probe_packets = probe_packet_count_;
             fmt_ctx_->probesize = stream_buffer_max_;
             fmt_ctx_->skip_estimate_duration_from_pts = 1;
+            ret = avformat_open_input(&fmt_ctx_, input_.c_str(), nullptr, &opts);
+            if (interrupted_) return;
+            REQUIRE_RET(ret);
         }
 
         ret = avformat_find_stream_info(fmt_ctx_, nullptr);
+
         if (interrupted_) return;
         REQUIRE_RET(ret);
 
