@@ -3,7 +3,6 @@
 #include "Frame.h"
 #include "ff_decoder.h"
 #include "ff_encoder.h"
-//#include "sti/cortex_tm_client.h"
 #include "ui_MainWin.h"
 #include <QList>
 #include <QPixmap>
@@ -15,8 +14,6 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-
-#include <boost/asio/ip/tcp.hpp>
 #include <thread>
 
 struct SwsContext;
@@ -89,12 +86,10 @@ private:
     std::atomic<uint16_t> sfid_{ 0 };
     std::atomic<size_t> frameCount_{ 0 };
     std::atomic<size_t> receivedBytes_{ 0 };
+    std::atomic<bool> interrupted_{ false };
 
     std::map<size_t, VideoChannel> id2channel_;
-    // std::unique_ptr<cortex::crt_tm_client> tmc_;
 
-    boost::asio::io_context io_;
-    boost::asio::ip::tcp::socket client_;
     std::thread client_thread_;
 
     VideoRecvConfig form_;

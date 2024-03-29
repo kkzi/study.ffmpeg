@@ -2,8 +2,7 @@
 #include "SplitFrame.h"
 #include "ff_decoder.h"
 #include "ff_encoder.h"
-//#include "sti/cortex_sti_parser.h"
-#include "ts_decode.hpp"
+#include "sti_reader.h"
 #include <QDataStream>
 #include <QDateTime>
 #include <QDebug>
@@ -14,12 +13,14 @@
 #include <QPushButton>
 #include <QTimeZone>
 #include <boost/asio/buffers_iterator.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read_until.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 #include <execution>
+#include <fmt/format.h>
 #include <format>
 #include <fstream>
 
@@ -52,7 +53,6 @@ static bool is_idle_frame(const Frame &frame)
 MainWin::MainWin()
     : QFrame()
     , timer_(new QTimer(this))
-    , client_(io_)
 {
     ui_.setupUi(this);
     ui_.label_6->hide();
@@ -177,6 +177,7 @@ void MainWin::start()
     //});
     // tmc_->start();
 
+    interrupted_ = false;
     client_thread_ = std::thread([this, ip = form_.receiveIp.toStdString(), port = (uint16_t)form_.receivePort, ch = 0] {
         startReceiveTm(ip, port, ch);
     });
@@ -188,18 +189,13 @@ void MainWin::start()
 
 void MainWin::stop()
 {
-    // if (tmc_)
-    //{
-    //    tmc_->stop();
-    //    tmc_.reset();
-    //}
+    interrupted_ = true;
+    if (client_thread_.joinable()) client_thread_.join();
+
     for (auto &[i, f] : id2channel_)
     {
         f.decode.reset();
-        if (f.decode_thread.joinable())
-        {
-            f.decode_thread.join();
-        }
+        if (f.decode_thread.joinable()) f.decode_thread.join();
         f.rawfile.close();
         f.tsfile.close();
     }
@@ -383,6 +379,7 @@ void MainWin::doDispatchRowContinus(const Frame &frame)
 
 void MainWin::paintImage(int idx, const QImage &image)
 {
+    if (interrupted_) return;
     // if (!tmc_) return;
     // auto size = ui_.Player->size();
     auto &chan = id2channel_[idx];
@@ -447,38 +444,22 @@ void MainWin::loadSpecifiedConfig(const QString &path)
     ui_.ParseCacheMode->setCurrentIndex(form_.parseCache);
 }
 
-using Iterator = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
-static std::pair<Iterator, bool> match_sti_frame(Iterator begin, Iterator end)
-{
-    static constexpr std::array<uint8_t, 4> HEAD{ 0x49, 0x96, 0x02, 0xd2 };
-    static constexpr std::array<uint8_t, 4> TAIL{ 0xb6, 0x69, 0xfd, 0x2e };
-    auto bytes = std::distance(begin, end);
-    if (bytes < 68)
-    {
-        return { begin, false };
-    }
-    // auto sequence = (int *)(begin.operator->());
-    auto head = std::search(begin, end, HEAD.begin(), HEAD.end());
-    if (head == end)
-    {
-        return { end - 3, false };
-    }
-    auto tail = std::search(begin, end, TAIL.begin(), TAIL.end());
-    if (tail == end)
-    {
-        return { head, false };
-    }
-    return { head, true };
-};
-
 void MainWin::startReceiveTm(const std::string &ip, uint16_t port, uint16_t channel)
 {
-    using namespace boost::asio;
-    using namespace boost::asio::ip;
-
-    client_.connect(tcp::endpoint{ ip::address::from_string(ip), port });
-
-    // std::string buffer;
-    boost::asio::streambuf buffer;
-    boost::asio::read_until(client_, buffer, match_sti_frame);
+    boost::asio::io_context io;
+    auto offset = HEAD_OFFSET + form_.syncBytes + form_.sfidBytes + (form_.videoMode == 0 ? form_.videoReserved : 0);
+    sti_reader r(io, ip, port);
+    r.run(channel, 0, [this, offset](auto &&msg) {
+        auto ptr = (uint8_t *)msg.data();
+        auto time = (uint64_t)load_big_u32(ptr + 12) * 1e6 + load_big_u32(ptr + 16);
+        time = QDateTime({ QDate::currentDate().year(), 1, 1 }).addMSecs(time / 1e3).toMSecsSinceEpoch();
+        std::vector<uint8_t> payload(msg.begin() + 64, msg.end() - 4);
+        Frame video_frame{ frameCount_++, (double)time / 1e3, std::move(payload), offset };
+        // if (!is_idle_frame(video_frame))
+        {
+            dispatchFrame(video_frame);
+        }
+        return !interrupted_;
+    });
+    io.run();
 }

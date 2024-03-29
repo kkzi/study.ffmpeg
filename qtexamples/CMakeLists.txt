@@ -29,7 +29,6 @@ include_directories(.)
 #target_link_libraries(TestVideoRecv- PRIVATE ${FFMPEG_LIBRARIES} Qt::Widgets)
 
 include_directories(..)
-add_subdirectory(sti)
 
 add_executable(fftest2 test_encode.cpp)
 #target_link_libraries(fftest2 avcodec avformat avutil avfilter)
@@ -39,7 +38,7 @@ target_link_libraries(fftest2  PRIVATE ${FFMPEG_LIBRARIES})
 
 
 set(Boost_NO_WARN_NEW_VERSIONS ON)
-find_package(Boost COMPONENTS thread REQUIRED)
+find_package(Boost REQUIRED COMPONENTS thread )
 link_directories(${Boost_LIBRARY_DIRS})
 add_executable(testgrab test_grab.cpp)
 #target_link_libraries(testgrab sti avdevice avcodec avformat avutil swscale )
