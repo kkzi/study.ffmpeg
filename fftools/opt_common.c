@@ -60,8 +60,8 @@
 #include "libswresample/swresample.h"
 #include "libswresample/version.h"
 
-#include "libpostproc/postprocess.h"
-#include "libpostproc/version.h"
+//#include "libpostproc/postprocess.h"
+//#include "libpostproc/version.h"
 
 enum show_muxdemuxers
 {

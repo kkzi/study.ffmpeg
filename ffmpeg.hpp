@@ -67,7 +67,7 @@ static std::vector<AVFrame *> ff_decode(AVCodecContext *ctx, AVPacket *pkt)
     auto ret = avcodec_send_packet(ctx, pkt);
     if (ret < 0)
     {
-        //avcodec_flush_buffers(ctx);
+        // avcodec_flush_buffers(ctx);
         return {};
     }
 
@@ -110,6 +110,24 @@ static std::vector<AVPacket *> ff_encode(AVCodecContext *ctx, AVFrame *frame)
         }
     }
     return packets;
+}
+
+static AVFrame *ff_scale_frame(AVFrame *frame, int width, int height, AVPixelFormat pfmt = AV_PIX_FMT_NONE)
+{
+    if (frame == nullptr) return nullptr;
+    if (width == frame->width && height == frame->height) return frame;
+
+    AVFrame *scaled = av_frame_alloc();
+    av_frame_copy_props(scaled, frame);
+    scaled->width = width;
+    scaled->height = height;
+    scaled->format = pfmt == AV_PIX_FMT_NONE ? frame->format : pfmt;
+    av_image_alloc(scaled->data, scaled->linesize, width, height, (AVPixelFormat)scaled->format, 1);
+    auto swsctx =
+        sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format, width, height, (AVPixelFormat)scaled->format, SWS_BILINEAR, NULL, NULL, NULL);
+    sws_scale(swsctx, frame->data, frame->linesize, 0, frame->height, scaled->data, scaled->linesize);
+    sws_freeContext(swsctx);
+    return scaled;
 }
 
 static std::vector<uint8_t> ff_from_yuv(AVFrame *frame, AVPixelFormat to_fmt, SwsContext *swsctx)

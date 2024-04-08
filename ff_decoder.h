@@ -146,16 +146,17 @@ private:
             // av_dict_set_int(&opts, "resync_size", 2048, 0);
             // av_dict_set_int(&opts, "max_packet_size", 4096, 0);
             // av_dict_set_int(&opts, "max_probe_size", 4096, 0);
-            fmt_ctx_->format_probesize = 0x800;
-            fmt_ctx_->max_probe_packets = probe_packet_count_;
-            fmt_ctx_->probesize = stream_buffer_max_;
-            fmt_ctx_->skip_estimate_duration_from_pts = 1;
+            // fmt_ctx_->format_probesize = 0x800;
+            // fmt_ctx_->max_probe_packets = probe_packet_count_;
+            // fmt_ctx_->probesize = stream_buffer_max_;
+            // fmt_ctx_->skip_estimate_duration_from_pts = 1;
             ret = avformat_open_input(&fmt_ctx_, input_.c_str(), nullptr, &opts);
             if (interrupted_) return;
             REQUIRE_RET(ret);
         }
 
-        ret = avformat_find_stream_info(fmt_ctx_, nullptr);
+        // ret = avformat_find_stream_info(fmt_ctx_, nullptr);
+        // fmt_ctx_->iformat = av_find_input_format("mpegts");
 
         if (interrupted_) return;
         REQUIRE_RET(ret);
@@ -223,12 +224,13 @@ private:
             int width = frame->width;
             int height = frame->height;
             sws_ctx_ = sws_getCachedContext(sws_ctx_, width, height, dec_ctx_->pix_fmt, width, height, AV_PIX_FMT_BGRA, SWS_BICUBIC, nullptr, nullptr, nullptr);
+            // sws_ctx_ = sws_getContext(width, height, dec_ctx_->pix_fmt, width, height, AV_PIX_FMT_BGRA, SWS_BICUBIC, nullptr, nullptr, nullptr);
             uint8_t *pixels[4]{ 0 };
             int pitch[4]{ 0 };
             av_image_alloc(pixels, pitch, width, height, AV_PIX_FMT_BGRA, 1);
             sws_scale(sws_ctx_, frame->data, frame->linesize, 0, height, pixels, pitch);
             bgra_callback_(pixels[0], pitch[0], width, height);
-            av_free(pixels[0]);
+            av_freep(&pixels[0]);
         }
     }
 

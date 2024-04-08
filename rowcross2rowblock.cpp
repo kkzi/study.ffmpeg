@@ -72,14 +72,14 @@ int main(int argc, char **argv)
     // split_row_cross();
 
     // ok
-    // split_col_cross<520, 16, 4>("D:/Project/FTS/SAC 沈飞/视频问题/2023-05-22 4路视频-520.bin", "output_2");
+    // split_col_cross<520, 16, 4>("D:/Project/FTS/SAC沈飞/视频问题/2023-05-22 4路视频-520.bin", "output_2");
 
     // 没画面，有信息
-    // split_col_cross<520, 16, 3, true>("D:/Project/FTS/SAC 沈飞/视频问题/测试数据/3路视频大端10M", "output_3");
+    split_col_cross<520, 16, 3, true>("D:/Project/FTS/SAC沈飞/视频问题/测试数据/3路视频大端10M", "output_3");
 
     // ok
-    split_col_cross<268, 20, 2, false>("D:/Project/FTS/SAC 沈飞/视频问题2/20231017/20230926.bin 16x268", "output_4");
+    // split_col_cross<268, 20, 2, false>("D:/Project/FTS/SAC沈飞/视频问题2/20231017/20230926.bin 16x268", "output_4");
 
     // 无画面，无信息
-    // split_col_cross<1032, 520, 2, true>("D:/Project/FTS/SAC 沈飞/视频问题2/20231017/2023-09-26SF 8x1032", "output_5");
+    // split_col_cross<1032, 520, 2, true>("D:/Project/FTS/SAC沈飞/视频问题2/20231017/2023-09-26SF 8x1032", "output_5");
 }

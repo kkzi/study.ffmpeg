@@ -30,13 +30,14 @@ public:
             av_opt_set(enc_ctx_->priv_data, "tune", "zerolatency", 0);
         }
 
-        //auto ret = avcodec_open2(enc_ctx_, codec, NULL);
-        //REQUIRE_RET(ret);
-        int ret = 0;
+        auto ret = avcodec_open2(enc_ctx_, codec, NULL);
+        REQUIRE_RET(ret);
 
         // mux
-        avformat_alloc_output_context2(&fmt_ctx_, nullptr, fmtname.data(), filename.data());
-        fmt_ctx_->oformat->flags;
+        auto out_fmt = av_guess_format("rtp_mpegts", NULL, NULL);
+        avformat_alloc_output_context2(&fmt_ctx_, out_fmt, fmtname.data(), filename.data());
+
+        // fmt_ctx_->oformat->flags;
         if (filename.empty())
         {
             constexpr static size_t BUFFER_LEN = 0xFFFF;
@@ -56,14 +57,15 @@ public:
             ret = avio_open(&fmt_ctx_->pb, filename.data(), AVIO_FLAG_WRITE);
             REQUIRE_RET(ret);
         }
+        if (enc_ctx_->flags & AVFMT_GLOBALHEADER) enc_ctx_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
         auto video_stream_ = avformat_new_stream(fmt_ctx_, codec);
         assert(video_stream_);
-        video_stream_->time_base = enc_ctx_->time_base;
-
-        if (enc_ctx_->flags & AVFMT_GLOBALHEADER) enc_ctx_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
         ret = avcodec_parameters_from_context(video_stream_->codecpar, enc_ctx_);
+        // video_stream_->time_base = enc_ctx_->time_base;
+        // video_stream_->codecpar->width = width;
+        // video_stream_->codecpar->height = height;
         REQUIRE_RET(ret);
 
         ret = avformat_write_header(fmt_ctx_, nullptr);
@@ -91,18 +93,24 @@ public:
 
     void encode(AVFrame *frame)
     {
-        auto arr = ff_encode(enc_ctx_, frame);
+        auto scaled = ff_scale_frame(frame, enc_ctx_->width, enc_ctx_->height);
+        auto arr = ff_encode(enc_ctx_, scaled);
         for (auto &pkt : arr)
         {
-            //pkt->pts = av_rescale_q(pkt->pts, enc_ctx_->time_base, fmt_ctx_->streams[0]->time_base);
-            //pkt->dts = pkt->pts;
+            // pkt->pts = av_rescale_q(pkt->pts, enc_ctx_->time_base, fmt_ctx_->streams[0]->time_base);
+            // pkt->dts = pkt->pts;
             // packet->pos = -1;
-            //printf("[%x] pts %lld\n", GetCurrentThreadId(), pkt->pts);
+            // printf("[%x] pts %lld\n", GetCurrentThreadId(), pkt->pts);
 
             if (enc_pkt_callback_) enc_pkt_callback_(pkt);
 
             av_interleaved_write_frame(fmt_ctx_, pkt);
             av_packet_free(&pkt);
+        }
+        if (scaled)
+        {
+            av_freep(&scaled->data[0]);
+            av_frame_free(&scaled);
         }
     }
 

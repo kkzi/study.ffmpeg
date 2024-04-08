@@ -20,6 +20,7 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/thread/sync_bounded_queue.hpp>
 #include <execution>
+#include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <format>
 #include <fstream>
@@ -31,23 +32,25 @@ constexpr static size_t UPDATE_INTERVAL = 100;
 
 static bool is_idle_frame(const uint8_t *ptr)
 {
-    if (ptr == nullptr)
-    {
-        return true;
-    }
-    auto numbers = *(uint64_t *)ptr;
+    // if (ptr == nullptr)
+    //{
+    //    return true;
+    //}
+    // auto numbers = *(uint64_t *)ptr;
 
-    return numbers == 0 || numbers == 0x5555'5555'5555'5555 || numbers == 0xFADE'FADE'FADE'FADE || numbers == 0xDEFA'DEFA'DEFA'DEFA ||
-           numbers == 0xDEAD'DEAD'DEAD'DEAD || numbers == 0xADDE'ADDE'ADDE'ADDE;
+    // return numbers == 0 || numbers == 0x5555'5555'5555'5555 || numbers == 0xFADE'FADE'FADE'FADE || numbers == 0xDEFA'DEFA'DEFA'DEFA ||
+    //       numbers == 0xDEAD'DEAD'DEAD'DEAD || numbers == 0xADDE'ADDE'ADDE'ADDE;
+    return false;
 }
 
 static bool is_idle_frame(const Frame &frame)
 {
-    if (frame.payload.size() < 8)
-    {
-        return true;
-    }
-    return is_idle_frame(frame.payload.data() + frame.offset);
+    // if (frame.payload.size() < 8)
+    //{
+    //    return true;
+    //}
+    // return is_idle_frame(frame.payload.data() + frame.offset);
+    return false;
 }
 
 MainWin::MainWin()
@@ -59,20 +62,13 @@ MainWin::MainWin()
     ui_.ChannelEdit->hide();
     ui_.label_7->hide();
     ui_.TimeCodeEdit->hide();
-
-    {
-        // ui_.Title4->hide();
-        // ui_.label_13->hide();
-        // ui_.label_14->hide();
-        // ui_.ForwardIpEdit->hide();
-        // ui_.ForwardPortEdit->hide();
-        // ui_.verticalLayout->removeItem(ui_.verticalLayout->takeAt(2));
-    }
     ui_.VideoChannelsEdit->setMinimum(1);
     ui_.ReservedEdit->setMaximum(4096);
     ui_.VideoChannelsEdit->setValue(3);
     playerLayout_ = new QGridLayout(ui_.Player);
     playerLayout_->setContentsMargins(0, 0, 0, 0);
+    playerLayout_->setSpacing(0);
+    ui_.Stack->setCurrentIndex(0);
 
     timer_->setSingleShot(false);
 
@@ -86,13 +82,22 @@ MainWin::MainWin()
     };
 
     connect(timer_, &QTimer::timeout, this, &MainWin::updateDisplay);
-    connect(ui_.Start, &QPushButton::clicked, this, [this](bool checked) {
-        return checked ? start() : stop();
-    });
+    connect(ui_.Start, &QPushButton::clicked, this, &MainWin::start);
+    connect(ui_.Stop, &QPushButton::clicked, this, &MainWin::stop);
     connect(ui_.SaveAs, &QPushButton::clicked, this, [this]() {
         auto path = QFileDialog::getSaveFileName(this, QStringLiteral("保存配置文件"), {}, "*.bcfg");
         if (path.isEmpty()) return;
         saveCurrentConfig(path);
+    });
+    connect(ui_.ForwardEnabled, &QCheckBox::toggled, ui_.ForwardIpEdit, &QWidget::setEnabled);
+    connect(ui_.ForwardEnabled, &QCheckBox::toggled, ui_.ForwardPortEdit, &QWidget::setEnabled);
+    {
+        ui_.label_19->hide();
+        ui_.horizontalSpacer_4->changeSize(0, 0);
+        ui_.ParseCacheMode->hide();
+    }
+    connect(ui_.VideoFmt, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
+        ui_.ReserveLabel->setText(QStringLiteral("保留(%1)").arg(index > 1 ? QStringLiteral("行") : QStringLiteral("字节")));
     });
 
     connect(ui_.CurrentConfig, &QPushButton::clicked, this, [this] {
@@ -112,6 +117,12 @@ MainWin::~MainWin()
     stop();
 }
 
+void MainWin::resizeEvent(QResizeEvent *event)
+{
+    resizing_ = true;
+    QFrame::resizeEvent(event);
+}
+
 void MainWin::start()
 {
     saveCurrentConfig();
@@ -124,25 +135,31 @@ void MainWin::start()
     }
 
     id2channel_.clear();
+    interrupted_ = false;
     auto bufferCapacity = std::pow(2, form_.parseCache) * 1024;
     for (auto i = 0; i < form_.videoChannelCount; ++i)
     {
-        auto player = new QLabel(this);
+        auto player = new Player(this);
         playerLayout_->addWidget(player, i / 2, i % 2);
 
         auto decode = std::make_unique<ff_decoder>(bufferCapacity);
-        auto rtpurl = std::format("rtp://{}:{}", form_.forwardIp.toStdString(), form_.forwardPort + i * 10);
-        auto fwd = std::make_shared<ff_encoder>("rtp_mpegts", rtpurl, 400, 200, 10);
-        decode->on_frame([i, fwd](auto &&frame) {
-            // printf("%d %lld\n", i, frame->pts);
-            fwd->encode(frame);
-        });
+
+        if (ui_.ForwardEnabled->isChecked())
+        {
+            auto rtpurl = std::format("rtp://{}:{}", form_.forwardIp.toStdString(), form_.forwardPort + i * 10);
+            auto fwd = std::make_shared<ff_encoder>("rtp_mpegts", rtpurl, 800, 600, 10);
+            decode->on_frame([i, fwd](auto &&frame) {
+                // printf("%d %lld\n", i, frame->pts);
+                fwd->encode(frame);
+            });
+        }
         decode->on_bgra_picture([idx = i, player, this](auto &&buf, auto &&len, int width, int height) {
             QImage image((uchar *)buf, width, height, QImage::Format_RGB32);
             emit imageReceived(idx, image.copy());
         });
 
         id2channel_[i].decode_thread = std::thread([this, i] {
+            if (interrupted_) return;
             id2channel_[i].decode->run();
         });
         id2channel_[i].player = player;
@@ -151,40 +168,12 @@ void MainWin::start()
         id2channel_[i].tsfile = std::ofstream(std::format("tsfile_{}.ts", i), std::ios::binary | std::ios::trunc);
     }
 
-    auto videoDataOffset = HEAD_OFFSET + form_.syncBytes + form_.sfidBytes + (form_.videoMode == 0 ? form_.videoReserved : 0);
-    // auto parser = std::make_shared<cortex::cortex_sti_parser>((HEAD_OFFSET + form_.frameBytes) * bufferCapacity);
-    // parser->set_tm_msg_callback_fun([offset = videoDataOffset, this](auto &&frame) {
-    //    auto ptr = frame->data();
-    //    auto time = (uint64_t)load_big_u32(ptr + 12) * 1e6 + load_big_u32(ptr + 16);
-    //    time = QDateTime({ QDate::currentDate().year(), 1, 1 }).addMSecs(time / 1e3).toMSecsSinceEpoch();
-    //    std::vector<uint8_t> payload(frame->begin() + 64, frame->end() - 4);
-
-    //    Frame video_frame{ frameCount_++, (double)time / 1e3, std::move(payload), offset };
-    //    if (!is_idle_frame(video_frame))
-    //    {
-    //        dispatchFrame(video_frame);
-    //    }
-    //});
-    // parser->start();
-
-    // tmc_ = std::make_unique<cortex::crt_tm_client>();
-    // tmc_->set_config({ form_.receiveIp.toStdString(), (uint16_t)form_.receivePort, 0 });
-    // tmc_->set_tm_data_callback_fun([parser](auto &&begin, auto &&end) {
-    //    parser->push_data(begin, end);
-    //});
-    // tmc_->set_error_log_callback_fun([](auto &&msg) {
-    //    printf("tmc error: %s\n", msg.c_str());
-    //});
-    // tmc_->start();
-
-    interrupted_ = false;
     client_thread_ = std::thread([this, ip = form_.receiveIp.toStdString(), port = (uint16_t)form_.receivePort, ch = 0] {
         startReceiveTm(ip, port, ch);
     });
 
     timer_->start(UPDATE_INTERVAL);
-    ui_.ConfigFrame->setDisabled(true);
-    ui_.Start->setText(QStringLiteral("停止"));
+    ui_.Stack->setCurrentIndex(1);
 }
 
 void MainWin::stop()
@@ -206,8 +195,8 @@ void MainWin::stop()
     frameCount_ = 0;
     receivedBytes_ = 0;
 
-    ui_.ConfigFrame->setEnabled(true);
-    ui_.Start->setText(QStringLiteral("开始"));
+    ui_.Stack->setCurrentIndex(0);
+    // ui_.Start->setText(QStringLiteral("开始"));
 }
 
 void MainWin::updateDisplay()
@@ -248,37 +237,6 @@ void MainWin::dispatchFrame(const Frame &frame)
 
 void MainWin::doDispatchColumn(const Frame &frame)
 {
-    // int index = 0;
-    // auto bytesPerChannel = (frame.payload.size() - frame.offset) / channels_;
-
-    // auto ptr = (char *)frame.payload.data();
-    // for (auto i = frame.offset; i < frame.payload.size(); i += 2)
-    //{
-    //    auto index = ((i - frame.offset) / 2) % channels_;
-    //    auto &chan = id2channel_[index];
-    //    if (bigendian_)
-    //    {
-    //        std::copy(ptr + i, ptr + i + 2, std::back_inserter(chan.payload));
-    //    }
-    //    else
-    //    {
-    //        std::reverse_copy(ptr + i, ptr + i + 2, std::back_inserter(chan.payload));
-    //    }
-    //}
-
-    // for (auto &[id, chan] : id2channel_)
-    //{
-    //    chan.rawfile.write((char *)chan.payload.data(), chan.payload.size());
-    //    if (!is_idle_frame(chan.payload.data()))
-    //    {
-    //        // if (id == 0)
-    //        {
-    //            chan.decode->push_bytes(chan.payload.data(), chan.payload.size());
-    //        }
-    //        chan.tsfile.write((char *)chan.payload.data(), chan.payload.size());
-    //    }
-    //    chan.payload.clear();
-    //}
     split_frame_column_cross(frame, form_.videoChannelCount, form_.videoDataIsBigEndian, [this](auto &&idx, auto &&payload) {
         if (!id2channel_.contains(idx)) return;
 
@@ -383,7 +341,8 @@ void MainWin::paintImage(int idx, const QImage &image)
     // if (!tmc_) return;
     // auto size = ui_.Player->size();
     auto &chan = id2channel_[idx];
-    chan.player->setPixmap(QPixmap::fromImage(image).scaled(chan.player->size()));
+    // chan.player->setPixmap(QPixmap::fromImage(image).scaled(chan.player->size()));
+    chan.player->setImage(image);
 }
 
 void MainWin::saveCurrentConfig(const QString &path)
@@ -446,14 +405,17 @@ void MainWin::loadSpecifiedConfig(const QString &path)
 
 void MainWin::startReceiveTm(const std::string &ip, uint16_t port, uint16_t channel)
 {
+    // std::ofstream file("sti_file_1.bin", std::ios::binary);
     boost::asio::io_context io;
     auto offset = HEAD_OFFSET + form_.syncBytes + form_.sfidBytes + (form_.videoMode == 0 ? form_.videoReserved : 0);
     sti_reader r(io, ip, port);
     r.run(channel, 0, [this, offset](auto &&msg) {
+        if (msg.empty()) return !interrupted_;
         auto ptr = (uint8_t *)msg.data();
         auto time = (uint64_t)load_big_u32(ptr + 12) * 1e6 + load_big_u32(ptr + 16);
         time = QDateTime({ QDate::currentDate().year(), 1, 1 }).addMSecs(time / 1e3).toMSecsSinceEpoch();
         std::vector<uint8_t> payload(msg.begin() + 64, msg.end() - 4);
+        // file.write((char *)payload.data(), payload.size());
         Frame video_frame{ frameCount_++, (double)time / 1e3, std::move(payload), offset };
         // if (!is_idle_frame(video_frame))
         {
@@ -461,5 +423,6 @@ void MainWin::startReceiveTm(const std::string &ip, uint16_t port, uint16_t chan
         }
         return !interrupted_;
     });
+    // file.close();
     io.run();
 }

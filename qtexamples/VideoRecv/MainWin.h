@@ -4,7 +4,9 @@
 #include "ff_decoder.h"
 #include "ff_encoder.h"
 #include "ui_MainWin.h"
+#include <QImage>
 #include <QList>
+#include <QPainter>
 #include <QPixmap>
 #include <QQueue>
 #include <QString>
@@ -19,9 +21,32 @@
 struct SwsContext;
 class QGridLayout;
 
+class Player : public QWidget
+{
+public:
+    using QWidget::QWidget;
+
+public:
+    void setImage(const QImage &image)
+    {
+        image_ = image;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        QPainter painter(this);
+        painter.drawImage(QRectF(rect()), image_);
+    }
+
+private:
+    QImage image_;
+};
+
 struct VideoChannel
 {
-    QLabel *player;
+    Player *player;
     std::unique_ptr<ff_decoder> decode{ nullptr };
     std::thread decode_thread;
     std::vector<uint8_t> payload;
@@ -58,6 +83,9 @@ public:
     MainWin();
     ~MainWin();
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     void start();
     void stop();
@@ -87,9 +115,9 @@ private:
     std::atomic<size_t> frameCount_{ 0 };
     std::atomic<size_t> receivedBytes_{ 0 };
     std::atomic<bool> interrupted_{ false };
+    bool resizing_{ false };
 
     std::map<size_t, VideoChannel> id2channel_;
-
     std::thread client_thread_;
 
     VideoRecvConfig form_;

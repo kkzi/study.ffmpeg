@@ -37,19 +37,7 @@ target_link_libraries(video_in_pcm PRIVATE ${FFMPEG_LIBRARIES} fmt::fmt-header-o
 
 
 
-#### vcpkg installed
-# ffmpeg:x64-windows                                6.1.1#2            
-# ffmpeg[avcodec]:x64-windows                                          
-# ffmpeg[avdevice]:x64-windows                                         
-# ffmpeg[avfilter]:x64-windows                                         
-# ffmpeg[avformat]:x64-windows                                         
-# ffmpeg[ffplay]:x64-windows                                           
-# ffmpeg[gpl]:x64-windows                                              
-# ffmpeg[postproc]:x64-windows                                         
-# ffmpeg[sdl2]:x64-windows                                             
-# ffmpeg[swresample]:x64-windows                                       
-# ffmpeg[swscale]:x64-windows                                          
-####
+### vcpkg install ffmpeg[fdk-aac,fontconfig,freetype,fribidi,gpl,mp3lame,nvcodec,vorbis,vpx,webp,x264,x265] 
 
 
 add_executable(ffplay fftools/ffplay.c fftools/ffplay_renderer.c fftools/opt_common.c fftools/cmdutils.c)
